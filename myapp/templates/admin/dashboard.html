@@ -1,0 +1,274 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}
+<script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    body {
+        background-color: #12141c;
+        color: #fff;
+        font-family: "Segoe UI", sans-serif;
+        margin:0;
+        padding:0;
+    }
+    
+    /* Sidebar */
+    .sidebar {
+        position: fixed;
+        top: 60px;
+        left: 0;
+        width: 220px;
+        height: calc(100% - 60px);
+        background-color: #1f222e;
+        padding-top: 25px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: 2px 0 8px rgba(0,0,0,0.6);
+        z-index: 100;
+    }
+    
+    .sidebar a {
+        color: #00c0ef;
+        text-decoration: none;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .sidebar a:hover {
+        background-color: #bcc0d1;
+        transform: translateX(5px);
+    }
+    
+    /* Main content */
+    .main-content {
+    width: 100%;
+    max-width: 100%;
+    padding: 20px;
+    margin: 0;
+    color: #dae5e6;
+ 
+}
+
+    
+    /* Stat cards */
+    .cards-wrapper {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+      
+    }
+    
+    .stat-card {
+        display: flex;
+        align-items: center;
+        /* background: linear-gradient(135deg, #2a2d3b, #1f222e); */
+        background: linear-gradient(135deg, #d10da3, #d10da3);
+        padding: 20px;
+        border-radius: 15px;
+        gap: 15px;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+        flex: 1 1 250px;
+    }
+    
+    .stat-card i {
+        font-size: 42px;
+        color: #00c0ef;
+    }
+    
+    /* Dashboard layout */
+    .dashboard-row {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+        margin-top: 30px;
+    }
+    
+    .dashboard-col {
+        width: 100%;
+    }
+    
+    /* Chart card */
+    .chart-card {
+        background-color: #1f222e;
+        border-radius: 15px;
+        padding: 20px;
+        box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+    }
+    
+    /* Chart title */
+    .chart-card h3 {
+        color: #00c0ef;
+        margin-bottom: 15px;
+    }
+    
+    /* Chart canvas */
+    canvas {
+        width: 100% !important;
+        max-height: 350px;
+    }
+    
+    /* Table */
+    .table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
+    
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 14px;
+        min-width: 700px;
+    }
+    
+    table th, table td {
+        padding: 12px;
+        text-align: left;
+    }
+    
+    table th {
+        background-color: #2a2d3b;
+    }
+    
+    table tr:nth-child(even) { background-color: #2a2d3b; }
+    table tr:nth-child(odd) { background-color: #232634; }
+    table tr:hover { background-color: #33364d; }
+    </style>
+    
+{% endblock %}
+
+{% block content %}
+  <div class="sidebar">
+    <a href="{% url 'admin:auth_user_changelist' %}"><i class="fas fa-user"></i> Users</a>
+    <a href="{% url 'admin:auth_group_changelist' %}"><i class="fas fa-users-cog"></i> Groups</a>
+    <a href="{% url 'admin:myapp_category_changelist' %}"><i class="fas fa-tags"></i> Categories</a>
+    <a href="{% url 'admin:myapp_commande_changelist' %}"><i class="fas fa-shopping-cart"></i> Commandes</a>
+    <a href="{% url 'admin:myapp_supplier_changelist' %}"><i class="fas fa-truck"></i> Fournisseurs</a>
+    <a href="{% url 'admin:myapp_product_changelist' %}"><i class="fas fa-box"></i> Produits</a>
+</div>  
+
+
+<div class="main-content">
+    <!-- Stat cards -->
+    <div class="cards-wrapper">
+        <div class="stat-card"><i class="fas fa-box"></i>
+            <div class="stat-info"><span class="number"><h5>{{products_count}}</h5></span> <span class="label"><h5>Produits</h5></span></div>
+        </div>
+        <div class="stat-card"><i class="fas fa-clock"></i>
+            <div class="stat-info"><span class="number"><h5>{{orders_pending}}</h5></span> <span class="label"><h5>Commandes en attente</h5></span></div>
+        </div>
+        <div class="stat-card"><i class="fas fa-check-circle"></i>
+            <div class="stat-info"><span class="number"><h5>{{orders_delivered}}</h5></span> <span class="label"><h5>Commandes livrées</h5></span></div>
+        </div>
+    </div>
+
+    <!-- Dashboard row: Bar chart + Tableau -->
+    <div class="dashboard-row" style="flex-direction: column;">
+    
+        <!-- Graphique -->
+        <div class="dashboard-col">
+            <div class="chart-card">
+                <h3>Commandes Livrées / En attente</h3>
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+    
+        <!-- Tableau -->
+        {% if perms.myapp.view_commande %}
+        <div class="dashboard-col">
+            <div class="chart-card">
+                <h3>🛒 5 Dernières commandes</h3>
+        
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Client</th>
+                                <th>Produit</th>
+                                <th>Quantité</th>
+                                <th>Paiement</th>
+                                <th>Statut</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cmd in commande %}
+                            <tr>
+                                <td>{{ cmd.customer_name }}</td>
+                                <td>{{ cmd.product.name }}</td>
+                                <td>{{ cmd.quantity }}</td>
+                                <td>{{ cmd.payment }}</td>
+                                <td>
+                                    {% if cmd.is_delivered %}
+                                        <span style="color:#00a65a;font-weight:bold;">✔ Livrée</span>
+                                    {% else %}
+                                        <span style="color:#f39c12;font-weight:bold;">⏳ En attente</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ cmd.created_at|date:"d/m/Y H:i" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+        
+            </div>
+        </div>
+        {% endif %}
+        
+    
+    </div>
+    
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const data = {
+        labels: ["Livrées", "En attente"],
+        datasets: [{
+            label: 'Nombre de commandes',
+            data: [{{ orders_delivered }}, {{ orders_pending }}],
+            backgroundColor: ['#00a65a', '#f39c12'],
+            borderColor: ['#00a65a', '#f39c12'],
+            borderWidth: 1
+        }]
+    };
+
+    const config = {
+        type: 'bar', // type bâton hraph
+        data: data,
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1f222e',
+                    titleColor: '#00c0ef',
+                    bodyColor: '#fff',
+                    titleFont: { weight: 'bold' }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: 'white', font: { size: 14 } },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: 'white', font: { size: 14 }, stepSize: 1 },
+                    grid: { color: 'rgba(255,255,255,0.1)' }
+                }
+            }
+        }
+    };
+
+    const ctx = document.getElementById('barChart');
+    new Chart(ctx, config);
+});
+</script>
+
+{% endblock %}
