@@ -69,7 +69,7 @@
       </div>
     </div>
 
-    <!-- ===== ACHAT ===== -->
+    <!-- ===== ACHAT + QUANTITÉ ===== -->
     <div class="col-md-3">
       <div class="seller-box shadow-sm">
 
@@ -78,18 +78,16 @@
         <small class="text-muted">Paiement sécurisé</small>
 
         {% if product.quantity > 0 %}
-        <a href="{% url 'commande' product.id %}" class="btn btn-buy w-100 mt-3">
-          🛒 Commander
-        </a>
+        <div class="d-flex mt-3 mb-2">
+          <input type="number" id="qty-input" class="form-control me-2" value="1" min="1" max="{{ product.quantity }}">
+          <button id="add-cart-btn" class="btn btn-buy flex-shrink-0">🛒 Ajouter</button>
+        </div>
         {% else %}
-        <button class="btn btn-secondary w-100 mt-3" disabled>
-          Indisponible
-        </button>
+        <button class="btn btn-secondary w-100 mt-3" disabled>Indisponible</button>
         {% endif %}
 
-        <a href="{% url 'home' %}" class="btn btn-outline-secondary w-100 mt-2">
-          ⬅ Continuer vos achats
-        </a>
+        <a href="{% url 'panier' %}" class="btn btn-outline-warning w-100 mt-2">Voir panier 🛒</a>
+        <a href="{% url 'home' %}" class="btn btn-outline-secondary w-100 mt-2">⬅ Continuer vos achats</a>
 
       </div>
     </div>
@@ -104,39 +102,32 @@
     </p>
   </div>
 
-<!-- ===== PRODUITS SIMILAIRES ===== -->
-<div class="bg-white rounded shadow-sm mt-4 p-4">
-  <h5 class="mb-3">Produits similaires</h5>
-
-  <div class="row g-3">
-    {% for item in similar_products %}
-    <div class="col-6 col-md-3">
-      <div class="card h-100">
-
-        {% if item.image %}
-        <img src="{{ item.image.url }}" class="card-img-top" style="height:160px; object-fit:contain;">
-        {% endif %}
-
-        <div class="card-body d-flex flex-column">
-          <h6 class="small">{{ item.name|truncatechars:40 }}</h6>
-          <strong class="text-danger">{{ item.price }} FCFA</strong>
-
-          <a href="{% url 'product_detail' item.id %}"
-             class="btn btn-sm btn-outline-primary mt-auto">
-            Voir détails
-          </a>
-        </div>
-
-      </div>
-    </div>
-    {% empty %}
-    <p class="text-muted">Aucun produit similaire trouvé.</p>
-    {% endfor %}
-  </div>
 </div>
 
+<script>
+  // Gestion du panier dans localStorage
+  const addBtn = document.getElementById('add-cart-btn');
+  const qtyInput = document.getElementById('qty-input');
 
-</div>
+  addBtn.addEventListener('click', () => {
+    let cart = JSON.parse(localStorage.getItem('cart')) || [];
+    const qty = parseInt(qtyInput.value);
+    const productId = {{ product.id }};
+    const name = "{{ product.name }}";
+    const price = {{ product.price }};
+
+    // Vérifier si le produit existe déjà dans le panier
+    const existing = cart.find(item => item.id === productId);
+    if(existing){
+      existing.qty += qty;
+    } else {
+      cart.push({id: productId, name: name, price: price, qty: qty});
+    }
+
+    localStorage.setItem('cart', JSON.stringify(cart));
+    alert(`${qty} ${name} ajouté(s) au panier !`);
+  });
+</script>
 
 </body>
 </html>

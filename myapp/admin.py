@@ -9,7 +9,8 @@ from django.shortcuts import redirect
 from .models import Product, Category, Supplier, SupplierDetail, HomePage, Commande
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
-
+from .models import Commande, CommandeItem  # Vérifie que c'est le dernier Commande
+from .models import Slide
 # ==============================
 #      PRODUCT ADMIN
 # ==============================
@@ -155,16 +156,27 @@ class HomePageAdmin(admin.ModelAdmin):
 # ==============================
 @admin.register(Commande)
 class CommandeAdmin(admin.ModelAdmin):
+
     list_display = (
-        'product', 'quantity', 'total_commande', 'customer_name', 'status_colored',
-        'customer_email', 'customer_phone', 'created_at', 'payment', 'is_delivered'
+        'id',
+        'customer_name',
+        'customer_email',
+        'total',
+        'is_paid',
+        'is_delivered',
+        'created_at',
     )
-    list_editable = ('is_delivered',)
-    search_fields = ('customer_name', 'customer_email', 'customer_phone', 'customer_address')
-    list_filter = ('payment', 'is_delivered')
-    fields = ('product', 'quantity', 'customer_name', 'customer_email', 'customer_phone',
-              'customer_address', 'payment', 'is_delivered')
-    list_per_page = 5
+
+    list_filter = (
+        'is_paid',
+        'is_delivered',
+        'created_at',
+    )
+
+    search_fields = (
+        'customer_name',
+        'customer_email',
+    )
 
     def total_commande(self, obj):
         if obj.product and obj.product.price:
@@ -196,7 +208,7 @@ class MyAdminSite(admin.AdminSite):
     def dashboard_view(self, request):
         last_commands = (
             Commande.objects
-            .select_related('product')
+            .select_related('user')
             .order_by('-created_at')[:5]
         )
         monthly_orders = (
@@ -217,7 +229,10 @@ class MyAdminSite(admin.AdminSite):
         )
         return TemplateResponse(request, "admin/dashboard.html", context)
 
+class SlideAdmin(admin.ModelAdmin):
+    list_display = ('title', 'image')
 
+# admin_site.register(Slide, SlideAdmin)
 # ==============================
 #      INSTANTIATION DE L'ADMIN PERSONNALISÉ
 # ==============================
@@ -233,3 +248,4 @@ admin_site.register(Supplier, SupplierAdmin)
 admin_site.register(SupplierDetail, SupplierDetailAdmin)
 admin_site.register(HomePage, HomePageAdmin)
 admin_site.register(Commande, CommandeAdmin)
+admin_site.register(Slide, SlideAdmin)

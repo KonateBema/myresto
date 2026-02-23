@@ -10,7 +10,7 @@ from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from reportlab.lib.utils import ImageReader
 from django.db.models import Q
-
+from django.contrib.auth.decorators import login_required
 from django.contrib.admin.models import LogEntry
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
@@ -23,25 +23,6 @@ from .forms import CommandeForm
 
 
 # =================== HOME ===================
-
-
-# def home(request):
-#     home_data = HomePage.objects.first()
-#     slides = HomeSlide.objects.all()
-
-#     query = request.GET.get('q')  # 🔍 récupération du texte recherché
-
-#     products = Product.objects.filter(quantity__gt=0)
-
-#     if query:
-#         products = products.filter(name__icontains=query)
-
-#     return render(request, 'home.html', {
-#         'home_data': home_data,
-#         'products': products,
-#         'slides': slides,
-#         'query': query,  # optionnel
-#     })
 
 
 def home(request):
@@ -139,38 +120,6 @@ def generate_pdf(request, commande_id):
 
     return response
 
-
-# =================== DASHBOARD ADMIN ===================
-# def dashboard_view(self, request):
-#     # 5 dernières commandes
-#     last_commands = (
-#         Commande.objects
-#         .select_related('product')
-#         .order_by('-created_at')[:5]
-#     )
-
-#     # Stats mensuelles
-#     monthly_orders = (
-#         Commande.objects
-#         .annotate(month=TruncMonth("created_at"))
-#         .values("month")
-#         .annotate(
-#             delivered_count=Count("id", filter=Count("id")),
-#         )
-#         .order_by("month")
-#     )
-
-#     context = dict(
-#         self.each_context(request),
-#         products_count=Product.objects.count(),
-#         orders_pending=Commande.objects.filter(is_delivered=False).count(),
-#         orders_delivered=Commande.objects.filter(is_delivered=True).count(),
-#         commande=last_commands,  # ✅ OBLIGATOIRE
-#         monthly_orders=monthly_orders,
-#     )
-
-#     return TemplateResponse(request, "admin/dashboard.html", context)
-
 def dashboard_view(self, request):
     # 5 dernières commandes
     if request.user.has_perm('myapp.view_commande'):
@@ -204,12 +153,7 @@ def dashboard_view(self, request):
 
     return TemplateResponse(request, "admin/dashboard.html", context)
 
-# def product_detail(request, id):
-#     product = get_object_or_404(Product, id=id)
-#     return render(request, 'product_detail.html', {
-#         'product': product,
-        
-#     })
+
 def product_detail(request, id):
     product = get_object_or_404(Product, id=id)
   
@@ -223,3 +167,55 @@ def product_detail(request, id):
        
         'similar_products': similar_products,
     })
+
+def panier_view(request):
+    """
+    Affiche le panier (commande) de l'utilisateur.
+    Les produits sont récupérés depuis le localStorage côté front via JS
+    ou depuis la session côté backend.
+    """
+    # Si tu veux gérer côté serveur, tu peux utiliser session
+    cart = request.session.get('cart', [])  # par défaut vide
+    total = sum(item['price'] * item['qty'] for item in cart)
+    
+    context = {
+        'cart': cart,
+        'total': total
+    }
+    return render(request, 'panier.html', context)
+
+
+@login_required
+def checkout(request):
+    """
+    Crée une commande à partir du panier envoyé depuis le frontend (JSON)
+    """
+    if request.method == "POST":
+        data = json.loads(request.body)
+        cart = data.get("cart", [])
+
+        if not cart:
+            return JsonResponse({"error": "Panier vide"}, status=400)
+
+        order = Order.objects.create(user=request.user)
+        total = 0
+
+        for item in cart:
+            product = Product.objects.get(id=item["id"])
+            quantity = int(item["qty"])
+            price = product.price
+            OrderItem.objects.create(order=order, product=product, quantity=quantity, price=price)
+            total += price * quantity
+
+            # Décrémenter le stock
+            if product.quantity >= quantity:
+                product.quantity -= quantity
+                product.save()
+
+        order.total = total
+        order.save()
+
+        return JsonResponse({"message": "Commande passée avec succès!", "order_id": order.id})
+
+    # GET request
+    return render(request, "checkout.html")

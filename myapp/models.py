@@ -1,7 +1,7 @@
 from django.db import models
 from ckeditor.fields import RichTextField
 from PIL import Image
-
+from django.contrib.auth.models import User
 
 # ================= CATEGORY =================
 class Category(models.Model):
@@ -38,6 +38,7 @@ class Product(models.Model):
     name = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     description = models.TextField(blank=True, null=True)
+    old_price = models.DecimalField(max_digits=10, decimal_places=0, null=True, blank=True)
     quantity = models.PositiveBigIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     categories = models.ManyToManyField(Category, related_name="products", blank=True)
@@ -202,26 +203,50 @@ class HomePage(models.Model):
 #     def status_display(self):
 #         return "Livrée" if self.is_delivered else "En attente"
 # ================= COMMANDE =================
+# class Commande(models.Model):
+#     PAYMENT_CHOICES = [
+#         ("LIVRAISON", "Paiement à la livraison"),
+#         ("ORANGE", "Orange Money"),
+#         ("MTN", "MTN Mobile Money"),
+#         ("WAVE", "Wave"),
+#     ]
+
+#     product = models.ForeignKey(Product, on_delete=models.CASCADE)
+#     quantity = models.PositiveIntegerField()
+#     is_paid = models.BooleanField(default=False)
+#     total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+#     customer_name = models.CharField(max_length=255)
+#     customer_email = models.EmailField()
+#     customer_phone = models.CharField(max_length=20)
+#     customer_address = models.TextField()
+
+#     payment = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
+
+#     # total_amount = models.DecimalField(max_digits=10, decimal_places=2)
+#     # total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+#     is_delivered = models.BooleanField(default=False)
+#     created_at = models.DateTimeField(auto_now_add=True)
+
+#     class Meta:
+#         verbose_name = "Commande"
+#         verbose_name_plural = "Commandes"
+#         ordering = ["-created_at"]
+
+#     def __str__(self):
+#         return f"Commande #{self.id} - {self.customer_name}"
+
+#     @property
+#     def status(self):
+#         return "Livrée" if self.is_delivered else "En attente"
+# ================= COMMANDE =================
 class Commande(models.Model):
-    PAYMENT_CHOICES = [
-        ("LIVRAISON", "Paiement à la livraison"),
-        ("ORANGE", "Orange Money"),
-        ("MTN", "MTN Mobile Money"),
-        ("WAVE", "Wave"),
-    ]
-
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField()
-
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     customer_name = models.CharField(max_length=255)
     customer_email = models.EmailField()
     customer_phone = models.CharField(max_length=20)
     customer_address = models.TextField()
-
-    payment = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
-
-    # total_amount = models.DecimalField(max_digits=10, decimal_places=2)
-    total_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    is_paid = models.BooleanField(default=False)
+    total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     is_delivered = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -236,7 +261,6 @@ class Commande(models.Model):
     @property
     def status(self):
         return "Livrée" if self.is_delivered else "En attente"
-
 # ================= SLIDES =================
 class HomeSlide(models.Model):
     title = models.CharField(max_length=255)
@@ -249,6 +273,7 @@ class HomeSlide(models.Model):
 class Slide(models.Model):
     title = models.CharField(max_length=200)
     image = models.ImageField(upload_to="slides/", blank=True, null=True)
+    description = models.TextField(blank=True,null=True)
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -256,3 +281,12 @@ class Slide(models.Model):
             img = Image.open(self.image.path)
             img.thumbnail((1200, 400))
             img.save(self.image.path, optimize=True, quality=85)
+
+class CommandeItem(models.Model):
+    commande = models.ForeignKey(Commande, on_delete=models.CASCADE, related_name='items')
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True)
+    quantity = models.PositiveIntegerField()
+    price = models.DecimalField(max_digits=10, decimal_places=0)
+
+    def __str__(self):
+        return f"{self.product.name} x {self.quantity}"

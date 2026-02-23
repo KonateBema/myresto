@@ -4,19 +4,8 @@ from .models import Commande
 class CommandeForm(forms.ModelForm):
     class Meta:
         model = Commande
-        fields = [
-            'quantity', 'payment', 'customer_name', 
-            'customer_email', 'customer_phone', 'customer_address',
-        ]
+        fields = ['customer_name', 'customer_email', 'customer_phone', 'customer_address']
         
-        labels = {
-            'quantity': 'Quantité',
-            'payment': 'Mode de paiement',
-            'customer_name': 'Nom complet',
-            'customer_email': 'Email',
-            'customer_phone': 'Téléphone',
-            'customer_address': 'Adresse',
-        }
         
         widgets = {
             'quantity': forms.NumberInput(attrs={
