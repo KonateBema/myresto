@@ -5,7 +5,6 @@ from django.http import HttpResponse
 from django.contrib import messages
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
-
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
 from reportlab.lib import colors
@@ -15,25 +14,25 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.admin.models import LogEntry
 from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
-
 import os
 import qrcode
 import base64
 from io import BytesIO
-from .models import Product, HomePage, HomeSlide, Commande 
+from .models import Product, HomePage, HomeSlide, Commande ,CommandeItem
 from .forms import CommandeForm
+from reportlab.platypus import Table, TableStyle  # ✅ IMPORT manquant
 
-
-
+# myapp/views.py
+from django.core.mail import send_mail
+# Pour WebSocket
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 # =================== HOME ===================
-
 
 def home(request):
     home_data = HomePage.objects.first()
     slides = HomeSlide.objects.all()
-
     query = request.GET.get('q')
-
     products = Product.objects.filter(quantity__gt=0)
 # Générer QR code pour accéder à la boutique (ou page spécifique)
     url = request.build_absolute_uri('/')  # lien vers la home
@@ -97,6 +96,7 @@ def commande_confirmation(request, commande_id):
 # =================== GENERATION PDF ===================
 
 # views.py
+
 def generate_pdf(request, commande_id):
     commande = get_object_or_404(Commande, id=commande_id)
 
@@ -106,13 +106,15 @@ def generate_pdf(request, commande_id):
     p = canvas.Canvas(response, pagesize=letter)
     width, height = letter
 
+    # Logo
     logo_path = os.path.join(settings.MEDIA_ROOT, 'logo.png')
     if os.path.exists(logo_path):
-        p.drawImage(ImageReader(logo_path), 50, height - 47, width=80, height=25)
+        p.drawImage(ImageReader(logo_path), 50, height - 60, width=80, height=30)
 
+    # Titre
     p.setFont("Helvetica-Bold", 16)
     p.drawString(180, height - 50, f"Confirmation de Commande - #{commande.id}")
-    p.line(50, height - 60, 550, height - 60)
+    p.line(50, height - 65, 550, height - 65)
 
     y = height - 100
 
@@ -131,30 +133,55 @@ def generate_pdf(request, commande_id):
         p.drawString(250, y, str(value))
         y -= 20
 
-    p.drawString(100, y - 10, "Produits commandés :")
-    y -= 30
+    y -= 10
+    p.setFont("Helvetica-Bold", 12)
+    p.drawString(100, y, "Produits commandés :")
+    y -= 20
 
-    # Produits
+    # Construire le tableau
+    table_data = [["Produit", "Quantité", "Prix Unitaire", "Sous-total"]]
     total = 0
     for item in commande.items.all():
-        subtotal = item.subtotal()
+        subtotal = item.quantity * item.price
         total += subtotal
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(100, y, f"{item.product.name} x {item.quantity}")
-        p.setFont("Helvetica", 12)
-        p.drawString(250, y, f"{subtotal} FCFA")
-        y -= 20
+        table_data.append([
+            item.product.name,
+            str(item.quantity),
+            f"{item.price:,.0f} FCFA",
+            f"{subtotal:,.0f} FCFA"
+        ])
+
+    # Créer le tableau avec ReportLab
+    table = Table(table_data, colWidths=[200, 70, 100, 100])
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.lightblue),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (1,1), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+    ]))
+
+    # Dessiner le tableau
+    table.wrapOn(p, width, height)
+    table_height = len(table_data) * 20
+    table.drawOn(p, 50, y - table_height)
+
+    y = y - table_height - 30
 
     # Total général
     p.setFont("Helvetica-Bold", 14)
-    p.drawString(100, y - 20, f"Total : {total} FCFA")
-    p.drawString(100, y - 50, "Merci pour votre confiance 🚀")
+    p.drawString(100, y, f"Total : {total:,.0f} FCFA")
+    y -= 30
+    p.setFont("Helvetica", 12)
+    p.drawString(100, y, "Merci pour votre confiance 🚀")
 
+    # Fin du PDF
     p.showPage()
     p.save()
+
     return response
-
-
 def dashboard_view(self, request):
     # 5 dernières commandes
     if request.user.has_perm('myapp.view_commande'):
@@ -219,37 +246,7 @@ def panier_view(request):
     }
     return render(request, 'panier.html', context)
 
-
-# @login_required
-# def checkout(request):
-#     """
-#     Crée une commande à partir du panier envoyé depuis le frontend (JSON)
-#     """
-#     if request.method == "POST":
-#         data = json.loads(request.body)
-#         cart = data.get("cart", [])
-
-#         if not cart:
-#             return JsonResponse({"error": "Panier vide"}, status=400)
-
-#         order = Order.objects.create(user=request.user)
-#         total = 0
-#         for item in cart:
-#             product = Product.objects.get(id=item["id"])
-#             quantity = int(item["qty"])
-#             price = product.price
-#             OrderItem.objects.create(order=order, product=product, quantity=quantity, price=price)
-#             total += price * quantity
-#             if product.quantity >= quantity:
-#                 product.quantity -= quantity
-#                 product.save()
-#         order.total = total
-#         order.save()
-#         return JsonResponse({"message": "Commande passée avec succès!", "order_id": order.id})
-#     return render(request, "checkout.html")
-
-
-
+# views.py
 
 def checkout_view(request):
 
@@ -260,16 +257,16 @@ def checkout_view(request):
     # ===================== POST =====================
     if request.method == "POST":
 
+        # Récupérer le panier envoyé depuis le front (localStorage)
         cart_items_raw = request.POST.get("cart_items")
-
         try:
             cart_items = json.loads(cart_items_raw) if cart_items_raw else []
         except json.JSONDecodeError:
-            messages.error(request, "Erreur panier invalide.")
+            messages.error(request, "Erreur : panier invalide.")
             return redirect("panier")
 
         if not cart_items:
-            messages.error(request, "Panier vide.")
+            messages.error(request, "Votre panier est vide.")
             return redirect("panier")
 
         # Infos client
@@ -278,15 +275,14 @@ def checkout_view(request):
         customer_phone = request.POST.get("customer_phone")
         customer_address = request.POST.get("customer_address")
 
-        if not customer_name or not customer_phone:
+        if not customer_name or not customer_phone or not customer_address:
             messages.error(request, "Informations client manquantes.")
             return redirect("checkout")
 
         total_general = 0
 
-        # calcul total
+        # ===================== Calcul total et mise à jour stock =====================
         for item in cart_items:
-
             product = get_object_or_404(Product, id=item["id"])
             quantity = int(item["qty"])
 
@@ -297,11 +293,11 @@ def checkout_view(request):
             total_item = float(product.price) * quantity
             total_general += total_item
 
-            # mise à jour stock
+            # Mise à jour stock
             product.quantity -= quantity
             product.save()
 
-        # création commande
+        # ===================== Création commande =====================
         commande = Commande.objects.create(
             customer_name=customer_name,
             customer_email=customer_email,
@@ -309,12 +305,50 @@ def checkout_view(request):
             customer_address=customer_address,
             total=total_general
         )
-           # Vider le panier dans la session
-        if 'panier' in request.session:
-            del request.session['panier']
 
+        # Ajouter les items à la commande
+        for item in cart_items:
+            product = get_object_or_404(Product, id=item["id"])
+            CommandeItem.objects.create(
+                commande=commande,
+                product=product,
+                quantity=int(item["qty"]),
+                price=product.price
+            )
+
+        # ===================== Envoi email =====================
+        # Au propriétaire
+        send_mail(
+            subject=f"Nouvelle commande #{commande.id}",
+            message=f"Une nouvelle commande a été passée par {customer_name}.\nTotal: {total_general} FCFA",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[settings.OWNER_EMAIL],
+        )
+
+        # Au livreur
+        send_mail(
+            subject=f"Nouvelle commande à livrer #{commande.id}",
+            message=f"Commande #{commande.id} à livrer.\nAdresse client: {customer_address}\nTéléphone: {customer_phone}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[settings.DELIVERY_EMAIL],
+        )
+
+        # ===================== Notification WebSocket =====================
+        try:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "notifications",
+                {
+                    "type": "send_notification",
+                    "message": f"Nouvelle commande #{commande.id} passée par {customer_name}"
+                }
+            )
+        except Exception as e:
+            print("Erreur notification WebSocket:", e)
+
+        # ===================== Retour et vidage panier =====================
+        # Ici on n’utilise plus la session Django, car le panier vient de localStorage
         messages.success(request, "Commande validée avec succès ✅")
-
         return redirect("commande_confirmation", commande.id)
 
 def panier_ajouter(request, product_id):

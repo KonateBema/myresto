@@ -28,7 +28,37 @@ DEBUG = True
 # ALLOWED_HOSTS = []
 ALLOWED_HOSTS = ['*']  # Change '*' par ton vrai domaine en production
 # Application definition
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = "bemak4178@gmail.com"
+EMAIL_HOST_PASSWORD = "twcc awcf ydrs dvgq"
 
+
+DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# OWNER_EMAIL = os.environ.get('lacinakonate93@gmail.com')  # email du propriétaire
+# DELIVERY_EMAIL = os.environ.get('bemak4178@gmail.com')  # email du livreur
+OWNER_EMAIL = "lacinakonate93@gmail.com"
+DELIVERY_EMAIL = "lacinakonate993@gmail.com"
+
+
+ASGI_APPLICATION = "myproject.asgi.application"
+
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [os.environ.get("REDIS_URL", "redis://localhost:6379")],
+#         },
+#     },
+# }
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
+  
 INSTALLED_APPS = [
     'jazzmin',
     'django.contrib.admin',
@@ -43,6 +73,7 @@ INSTALLED_APPS = [
     'cloudinary',
     'cloudinary_storage',
     'django.contrib.humanize',   # ✅ AJOUTER CETTE LIGNE
+     'channels'
 ]
 
 MIDDLEWARE = [

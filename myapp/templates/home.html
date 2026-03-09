@@ -123,6 +123,28 @@
   </nav>
 
   <!-- ================= SCRIPT PANIER ================= -->
+  <script>
+    const ws = new WebSocket('ws://' + window.location.host + '/ws/notifications/');
+
+    ws.onmessage = function(e) {
+        const data = JSON.parse(e.data);
+        alert(data.message);  // ou afficher dans un toast
+    }
+
+    fetch("/checkout/", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+        cart_items: localStorage.getItem("checkout_cart"),
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone,
+        customer_address: customerAddress
+    })
+});
+</script>
 
   <script>
 
@@ -300,32 +322,22 @@
 
               <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-outline-primary w-100 mb-2">
 
-                👁️ Voir détails
+                👁️ Voir détails 
 
               </a>
 
               {% if product.quantity > 0 %}
-
               <span class="badge bg-success">Disponible</span>
-
-              <a href="{% url 'commande' product.id %}" class="btn btn-sm btn-warning w-100 mt-2">
-
+              <!-- <a href="{% url 'commande' product.id %}" class="btn btn-sm btn-warning w-100 mt-2">
                 Commander
-
-              </a>
-
+              </a> -->
+              
               {% else %}
-
               <span class="badge bg-danger">Indisponible</span>
-
               <button class="btn btn-sm btn-secondary w-100 mt-2" disabled>
-
                 Indisponible
-
               </button>
-
               {% endif %}
-
             </div>
 
           </div>

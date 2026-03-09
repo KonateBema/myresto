@@ -240,6 +240,11 @@ class HomePage(models.Model):
 #         return "Livrée" if self.is_delivered else "En attente"
 # ================= COMMANDE =================
 class Commande(models.Model):
+    STATUS_CHOICES = (
+        ('En attente', 'En attente'),
+        ('En cours', 'En cours'),
+        ('Livrée', 'Livrée'),
+    )
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     customer_name = models.CharField(max_length=255)
     customer_email = models.EmailField()
