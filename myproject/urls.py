@@ -48,7 +48,8 @@ urlpatterns = [
     path('produit/<int:id>/', views.product_detail, name='product_detail'),
     # path('produit/<int:id>/', views.product_detail, name='product_detail')
     path('panier/', views.panier_view, name='panier'),  # panier
-    path('checkout/', views.checkout, name='checkout'),
+    # path('checkout/', views.checkout, name='checkout'),
+    path("checkout/", views.checkout_view, name="checkout"),
 
 ]
 # permette de charger le fichier image dans django

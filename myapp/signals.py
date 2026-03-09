@@ -1,17 +1,17 @@
+# signals.py
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import Commande
- 
-@receiver(post_save, sender=Commande)
+from .models import CommandeItem  # modèle pour chaque produit commandé
+
+@receiver(post_save, sender=CommandeItem)
 def update_product_quantity(sender, instance, created, **kwargs):
     """
-    Décrémente la quantité du produit après validation de la commande.
+    Décrémente la quantité du produit après validation d'une ligne de commande.
     """
-    if created:  # Vérifie si la commande est nouvellement créée
-        # Assure-toi que la quantité est bien disponible avant de la décrémenter
-        if instance.product.quantity >= instance.quantity:
-            instance.product.quantity -= instance.quantity
-            instance.product.save()
+    if created:
+        product = instance.product
+        if product.quantity >= instance.quantity:
+            product.quantity -= instance.quantity
+            product.save()
         else:
-            # Gérer le cas où il n'y a pas suffisamment de stock
-            print(f"Stock insuffisant pour le produit {instance.product.name}. Quantité disponible: {instance.product.quantity}")
+            print(f"Stock insuffisant pour {product.name}. Quantité disponible : {product.quantity}")

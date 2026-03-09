@@ -1,4 +1,5 @@
 # views.py
+import json
 from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse
 from django.contrib import messages
@@ -16,7 +17,9 @@ from django.db.models import Count, Q
 from django.db.models.functions import TruncMonth
 
 import os
-
+import qrcode
+import base64
+from io import BytesIO
 from .models import Product, HomePage, HomeSlide, Commande 
 from .forms import CommandeForm
 
@@ -32,7 +35,20 @@ def home(request):
     query = request.GET.get('q')
 
     products = Product.objects.filter(quantity__gt=0)
-
+# Générer QR code pour accéder à la boutique (ou page spécifique)
+    url = request.build_absolute_uri('/')  # lien vers la home
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=4,
+        border=2,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
     if query:
         products = products.filter(
             Q(name__icontains=query) |
@@ -44,6 +60,7 @@ def home(request):
         'products': products,
         'slides': slides,
         'query': query,
+        "qr_code": qr_code_base64
     })
 
 # =================== COMMANDE ===================
@@ -78,6 +95,8 @@ def commande_confirmation(request, commande_id):
 
 
 # =================== GENERATION PDF ===================
+
+# views.py
 def generate_pdf(request, commande_id):
     commande = get_object_or_404(Commande, id=commande_id)
 
@@ -93,32 +112,48 @@ def generate_pdf(request, commande_id):
 
     p.setFont("Helvetica-Bold", 16)
     p.drawString(180, height - 50, f"Confirmation de Commande - #{commande.id}")
-
     p.line(50, height - 60, 550, height - 60)
 
     y = height - 100
-    details = [
-        ("Client", commande.customer_name),
-        ("Produit", commande.product.name),
-        ("Quantité", str(commande.quantity)),
-        ("Adresse", commande.customer_address),
-        ("Paiement", commande.payment),
-        ("Date", commande.created_at.strftime("%d/%m/%Y %H:%M")),
-        ("Total", f"{commande.total_amount} €"),
-    ]
 
-    for label, value in details:
+    # Infos client
+    client_info = [
+        ("Client", commande.customer_name),
+        ("Email", commande.customer_email),
+        ("Téléphone", commande.customer_phone),
+        ("Adresse", commande.customer_address),
+        ("Date", commande.created_at.strftime("%d/%m/%Y %H:%M")),
+    ]
+    for label, value in client_info:
         p.setFont("Helvetica-Bold", 12)
         p.drawString(100, y, f"{label} :")
         p.setFont("Helvetica", 12)
-        p.drawString(250, y, value)
-        y -= 25
+        p.drawString(250, y, str(value))
+        y -= 20
 
-    p.drawString(100, y - 30, "Merci pour votre confiance 🚀")
+    p.drawString(100, y - 10, "Produits commandés :")
+    y -= 30
+
+    # Produits
+    total = 0
+    for item in commande.items.all():
+        subtotal = item.subtotal()
+        total += subtotal
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(100, y, f"{item.product.name} x {item.quantity}")
+        p.setFont("Helvetica", 12)
+        p.drawString(250, y, f"{subtotal} FCFA")
+        y -= 20
+
+    # Total général
+    p.setFont("Helvetica-Bold", 14)
+    p.drawString(100, y - 20, f"Total : {total} FCFA")
+    p.drawString(100, y - 50, "Merci pour votre confiance 🚀")
+
     p.showPage()
     p.save()
-
     return response
+
 
 def dashboard_view(self, request):
     # 5 dernières commandes
@@ -185,37 +220,132 @@ def panier_view(request):
     return render(request, 'panier.html', context)
 
 
-@login_required
-def checkout(request):
-    """
-    Crée une commande à partir du panier envoyé depuis le frontend (JSON)
-    """
+# @login_required
+# def checkout(request):
+#     """
+#     Crée une commande à partir du panier envoyé depuis le frontend (JSON)
+#     """
+#     if request.method == "POST":
+#         data = json.loads(request.body)
+#         cart = data.get("cart", [])
+
+#         if not cart:
+#             return JsonResponse({"error": "Panier vide"}, status=400)
+
+#         order = Order.objects.create(user=request.user)
+#         total = 0
+#         for item in cart:
+#             product = Product.objects.get(id=item["id"])
+#             quantity = int(item["qty"])
+#             price = product.price
+#             OrderItem.objects.create(order=order, product=product, quantity=quantity, price=price)
+#             total += price * quantity
+#             if product.quantity >= quantity:
+#                 product.quantity -= quantity
+#                 product.save()
+#         order.total = total
+#         order.save()
+#         return JsonResponse({"message": "Commande passée avec succès!", "order_id": order.id})
+#     return render(request, "checkout.html")
+
+
+
+
+def checkout_view(request):
+
+    # ===================== GET =====================
+    if request.method == "GET":
+        return render(request, "checkout.html")
+
+    # ===================== POST =====================
     if request.method == "POST":
-        data = json.loads(request.body)
-        cart = data.get("cart", [])
 
-        if not cart:
-            return JsonResponse({"error": "Panier vide"}, status=400)
+        cart_items_raw = request.POST.get("cart_items")
 
-        order = Order.objects.create(user=request.user)
-        total = 0
+        try:
+            cart_items = json.loads(cart_items_raw) if cart_items_raw else []
+        except json.JSONDecodeError:
+            messages.error(request, "Erreur panier invalide.")
+            return redirect("panier")
 
-        for item in cart:
-            product = Product.objects.get(id=item["id"])
+        if not cart_items:
+            messages.error(request, "Panier vide.")
+            return redirect("panier")
+
+        # Infos client
+        customer_name = request.POST.get("customer_name")
+        customer_email = request.POST.get("customer_email")
+        customer_phone = request.POST.get("customer_phone")
+        customer_address = request.POST.get("customer_address")
+
+        if not customer_name or not customer_phone:
+            messages.error(request, "Informations client manquantes.")
+            return redirect("checkout")
+
+        total_general = 0
+
+        # calcul total
+        for item in cart_items:
+
+            product = get_object_or_404(Product, id=item["id"])
             quantity = int(item["qty"])
-            price = product.price
-            OrderItem.objects.create(order=order, product=product, quantity=quantity, price=price)
-            total += price * quantity
 
-            # Décrémenter le stock
-            if product.quantity >= quantity:
-                product.quantity -= quantity
-                product.save()
+            if product.quantity < quantity:
+                messages.error(request, f"Stock insuffisant pour {product.name}")
+                return redirect("panier")
 
-        order.total = total
-        order.save()
+            total_item = float(product.price) * quantity
+            total_general += total_item
 
-        return JsonResponse({"message": "Commande passée avec succès!", "order_id": order.id})
+            # mise à jour stock
+            product.quantity -= quantity
+            product.save()
 
-    # GET request
-    return render(request, "checkout.html")
+        # création commande
+        commande = Commande.objects.create(
+            customer_name=customer_name,
+            customer_email=customer_email,
+            customer_phone=customer_phone,
+            customer_address=customer_address,
+            total=total_general
+        )
+           # Vider le panier dans la session
+        if 'panier' in request.session:
+            del request.session['panier']
+
+        messages.success(request, "Commande validée avec succès ✅")
+
+        return redirect("commande_confirmation", commande.id)
+
+def panier_ajouter(request, product_id):
+    panier = request.session.get('panier', {})
+    produit = get_object_or_404(Product, id=product_id)
+
+    if str(product_id) in panier:
+        panier[str(product_id)]['quantite'] += 1
+    else:
+        panier[str(product_id)] = {
+            'nom': produit.name,
+            'prix': float(produit.price),
+            'quantite': 1,
+            'image': produit.image.url if produit.image else ''
+        }
+
+    request.session['panier'] = panier
+    return redirect('panier')
+
+def panier_supprimer(request, product_id):
+    panier = request.session.get('panier', {})
+    panier.pop(str(product_id), None)
+    request.session['panier'] = panier
+    return redirect('panier')
+
+
+def panier_detail(request):
+    panier = request.session.get('panier', {})
+    total = sum(item['prix'] * item['quantite'] for item in panier.values())
+
+    return render(request, 'panier.html', {
+        'panier': panier,
+        'total': total
+    })

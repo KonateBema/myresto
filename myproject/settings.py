@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'ckeditor',  # un bibliothèque qui permet d'intégrer CKEditor
     'cloudinary',
     'cloudinary_storage',
+    'django.contrib.humanize',   # ✅ AJOUTER CETTE LIGNE
 ]
 
 MIDDLEWARE = [
