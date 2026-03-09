@@ -10,7 +10,7 @@ from .models import Product, Category, Supplier, SupplierDetail, HomePage, Comma
 from django.contrib.auth.models import User, Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from .models import Commande, CommandeItem  # Vérifie que c'est le dernier Commande
-from .models import Slide
+from .models import Slide ,HomeSlide
 # ==============================
 #      PRODUCT ADMIN
 # ==============================
@@ -232,6 +232,10 @@ class MyAdminSite(admin.AdminSite):
 class SlideAdmin(admin.ModelAdmin):
     list_display = ('title', 'image')
 
+@admin.register(HomeSlide)
+class HomeSlideAdmin(admin.ModelAdmin):
+    list_display = ("title", "image")
+
 # admin_site.register(Slide, SlideAdmin)
 # ==============================
 #      INSTANTIATION DE L'ADMIN PERSONNALISÉ
@@ -249,3 +253,4 @@ admin_site.register(SupplierDetail, SupplierDetailAdmin)
 admin_site.register(HomePage, HomePageAdmin)
 admin_site.register(Commande, CommandeAdmin)
 admin_site.register(Slide, SlideAdmin)
+admin_site.register(HomeSlide, HomeSlideAdmin)  # <-- nouveau modèle
