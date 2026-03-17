@@ -259,7 +259,112 @@ def panier_view(request):
     }
     return render(request, 'panier.html', context)
 
-# views.py
+# views.py  ne depoiement 
+
+# def checkout_view(request):
+#     # ===================== GET =====================
+#     if request.method == "GET":
+#         return render(request, "checkout.html")
+
+#     # ===================== POST =====================
+#     if request.method == "POST":
+
+#         # Récupérer le panier envoyé depuis le front (localStorage)
+#         cart_items_raw = request.POST.get("cart_items")
+#         try:
+#             cart_items = json.loads(cart_items_raw) if cart_items_raw else []
+#         except json.JSONDecodeError:
+#             messages.error(request, "Erreur : panier invalide.")
+#             return redirect("panier")
+
+#         if not cart_items:
+#             messages.error(request, "Votre panier est vide.")
+#             return redirect("panier")
+
+#         # Infos client
+#         customer_name = request.POST.get("customer_name")
+#         customer_email = request.POST.get("customer_email")
+#         customer_phone = request.POST.get("customer_phone")
+#         customer_address = request.POST.get("customer_address")
+
+#         if not customer_name or not customer_phone or not customer_address:
+#             messages.error(request, "Informations client manquantes.")
+#             return redirect("checkout")
+
+#         total_general = 0
+
+#         # ===================== Calcul total et mise à jour stock =====================
+#         for item in cart_items:
+#             product = get_object_or_404(Product, id=item["id"])
+#             quantity = int(item["qty"])
+
+#             if product.quantity < quantity:
+#                 messages.error(request, f"Stock insuffisant pour {product.name}")
+#                 return redirect("panier")
+
+#             total_item = float(product.price) * quantity
+#             total_general += total_item
+
+#             # Mise à jour stock
+#             product.quantity -= quantity
+#             product.save()
+
+#         # ===================== Création commande =====================
+#         commande = Commande.objects.create(
+#             customer_name=customer_name,
+#             customer_email=customer_email,
+#             customer_phone=customer_phone,
+#             customer_address=customer_address,
+#             total=total_general
+#         )
+
+#         # Ajouter les items à la commande
+#         for item in cart_items:
+#             product = get_object_or_404(Product, id=item["id"])
+#             CommandeItem.objects.create(
+#                 commande=commande,
+#                 product=product,
+#                 quantity=int(item["qty"]),
+#                 price=product.price
+#             )
+
+#         # ===================== Envoi email =====================
+#         # Au propriétaire
+#         send_mail(
+#             subject=f"Nouvelle commande #{commande.id}",
+#             message=f"Une nouvelle commande a été passée par {customer_name}.\nTotal: {total_general} FCFA",
+#             from_email=settings.DEFAULT_FROM_EMAIL,
+#             recipient_list=[settings.OWNER_EMAIL],
+#         )
+
+#         # Au livreur
+#         send_mail(
+#             subject=f"Nouvelle commande à livrer #{commande.id}",
+#             message=f"Commande #{commande.id} à livrer.\nAdresse client: {customer_address}\nTéléphone: {customer_phone}",
+#             from_email=settings.DEFAULT_FROM_EMAIL,
+#             recipient_list=[settings.DELIVERY_EMAIL],
+#         )
+
+#         # ===================== Notification WebSocket =====================
+#         try:
+#             channel_layer = get_channel_layer()
+#             async_to_sync(channel_layer.group_send)(
+#                 "notifications",
+#                 {
+#                     "type": "send_notification",
+#                     "message": f"Nouvelle commande #{commande.id} passée par {customer_name}"
+#                 }
+#             )
+#         except Exception as e:
+#             print("Erreur notification WebSocket:", e)
+
+#         # ===================== Retour et vidage panier =====================
+#         # Ici on n’utilise plus la session Django, car le panier vient de localStorage
+#         messages.success(request, "Commande validée avec succès ✅")
+#         return redirect("commande_confirmation", commande.id)
+
+
+
 def checkout_view(request):
     # 🔹 Récupérer le numéro de table depuis la session
     table_number = request.session.get("table")
@@ -276,8 +381,10 @@ def checkout_view(request):
 
     # ===================== POST =====================
     if request.method == "POST":
+
         # Récupérer le panier envoyé depuis le front (localStorage)
         cart_items_raw = request.POST.get("cart_items")
+
         try:
             cart_items = json.loads(cart_items_raw) if cart_items_raw else []
         except json.JSONDecodeError:
@@ -288,7 +395,7 @@ def checkout_view(request):
             messages.error(request, "Votre panier est vide.")
             return redirect("panier")
 
-        # Infos client
+        # ===================== Infos client =====================
         customer_name = request.POST.get("customer_name")
         customer_email = request.POST.get("customer_email")
         customer_phone = request.POST.get("customer_phone")
@@ -299,8 +406,10 @@ def checkout_view(request):
             return redirect("checkout")
 
         total_general = 0
+        details_produits = ""
+        produits_valides = []
 
-        # ===================== Calcul total et mise à jour stock =====================
+        # ===================== Vérification stock =====================
         for item in cart_items:
             product = get_object_or_404(Product, id=item["id"])
             quantity = int(item["qty"])
@@ -311,9 +420,12 @@ def checkout_view(request):
 
             total_general += product.price * quantity
 
-            # Mise à jour stock
-            product.quantity -= quantity
-            product.save()
+            produits_valides.append({
+                "product": product,
+                "quantity": quantity
+            })
+
+            details_produits += f"{product.name} - Quantité: {quantity}\n"
 
         # ===================== Création commande =====================
         commande = Commande.objects.create(
@@ -325,35 +437,53 @@ def checkout_view(request):
             total=total_general
         )
 
-        # Ajouter les items à la commande
-        for item in cart_items:
-            product = get_object_or_404(Product, id=item["id"])
+        # ===================== Enregistrer produits + réduire stock =====================
+        for item in produits_valides:
+            product = item["product"]
+            quantity = item["quantity"]
+
             CommandeItem.objects.create(
                 commande=commande,
                 product=product,
-                quantity=int(item["qty"]),
+                quantity=quantity,
                 price=product.price
             )
 
-        # ===================== Envoi email =====================
-        try:
-            # Propriétaire
-            send_mail(
-                subject=f"Nouvelle commande #{commande.id}",
-                message=f"Une nouvelle commande a été passée par {customer_name}.\nTotal: {total_general} FCFA",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[settings.OWNER_EMAIL],
-            )
+            # product.quantity -= quantity
+            # product.save()
+            if product.quantity >= quantity:
+               product.quantity -= quantity
+               product.save()
+            else:
+               messages.error(request, f"Stock insuffisant pour {product.name}")
+               return redirect("panier")
+        # ===================== Email propriétaire =====================
+        send_mail(
+            subject=f"Nouvelle commande #{commande.id}",
+            message=(
+                f"Une nouvelle commande a été passée par {customer_name}\n"
+                f"Téléphone: {customer_phone}\n"
+                f"Adresse: {customer_address}\n\n"
+                f"Produits commandés:\n{details_produits}\n"
+                f"Total: {total_general} FCFA"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[settings.OWNER_EMAIL],
+        )
 
-            # Livreur
-            send_mail(
-                subject=f"Nouvelle commande à livrer #{commande.id}",
-                message=f"Commande #{commande.id} à livrer.\nAdresse client: {customer_address}\nTéléphone: {customer_phone}",
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[settings.DELIVERY_EMAIL],
-            )
-        except Exception as e:
-            print("Erreur envoi mail:", e)
+        # ===================== Email livreur =====================
+        send_mail(
+            subject=f"Nouvelle commande à livrer #{commande.id}",
+            message=(
+                f"Commande #{commande.id}\n"
+                f"Client: {customer_name}\n"
+                f"Téléphone: {customer_phone}\n"
+                f"Adresse: {customer_address}\n\n"
+                f"Produits:\n{details_produits}"
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[settings.DELIVERY_EMAIL],
+        )
 
         # ===================== Notification WebSocket =====================
         try:
@@ -368,9 +498,11 @@ def checkout_view(request):
         except Exception as e:
             print("Erreur notification WebSocket:", e)
 
-        # ===================== Retour et vidage panier =====================
+        # ===================== Retour =====================
         messages.success(request, "Commande validée avec succès ✅")
-        return redirect("commande_confirmation", commande.id)     
+        return redirect("commande_confirmation", commande.id)
+
+
 def panier_ajouter(request, product_id):
     panier = request.session.get('panier', {})
     produit = get_object_or_404(Product, id=product_id)
