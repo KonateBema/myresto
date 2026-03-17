@@ -13,6 +13,13 @@
     <div class="container py-4">
         <h3 class="mb-4">Récapitulatif de votre commande</h3>
 
+        <!-- =================== NUMÉRO DE TABLE =================== -->
+        {% if table %}
+        <div class="alert alert-info">
+            🪑 Vous êtes à la <strong>Table N° {{ table.number }}</strong>
+        </div>
+        {% endif %}
+
         <!-- =================== RÉCAP PANIER =================== -->
         <div class="card mb-4">
             <div class="card-body" id="recap-cart"></div>
@@ -25,6 +32,11 @@
         <form method="POST" id="checkout-form">
             {% csrf_token %}
             <input type="hidden" name="cart_items" id="cart_items">
+
+            <!-- Envoyer le numéro de table si présent -->
+            {% if table %}
+            <input type="hidden" name="table_number" value="{{ table.number }}">
+            {% endif %}
 
             <div class="card">
                 <div class="card-body">

@@ -238,6 +238,11 @@ class HomePage(models.Model):
 #     @property
 #     def status(self):
 #         return "Livrée" if self.is_delivered else "En attente"
+class Table(models.Model):
+    number = models.IntegerField(unique=True)
+
+    def __str__(self):
+        return f"Table {self.number}"
 # ================= COMMANDE =================
 class Commande(models.Model):
     STATUS_CHOICES = (
@@ -254,6 +259,8 @@ class Commande(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     is_delivered = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    table = models.ForeignKey(Table, on_delete=models.SET_NULL, null=True, blank=True)
+
 
     class Meta:
         verbose_name = "Commande"

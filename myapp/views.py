@@ -28,13 +28,30 @@ from django.core.mail import send_mail
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 # =================== HOME ===================
-
 def home(request):
+    # 🔹 Récupération du numéro de table depuis l'URL
+    table_number = request.GET.get("table")
+    if table_number:
+        try:
+            # On s'assure que c'est bien un entier
+            table_number = int(table_number)
+            request.session["table"] = table_number
+        except ValueError:
+            table_number = None  # Ignore si ce n'est pas un nombre
+
+    # 🔹 Données pour la page d'accueil
     home_data = HomePage.objects.first()
     slides = HomeSlide.objects.all()
     query = request.GET.get('q')
     products = Product.objects.filter(quantity__gt=0)
-# Générer QR code pour accéder à la boutique (ou page spécifique)
+
+    if query:
+        products = products.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query)
+        )
+
+    # 🔹 Génération QR code pour la page d'accueil
     url = request.build_absolute_uri('/')  # lien vers la home
     qr = qrcode.QRCode(
         version=1,
@@ -48,20 +65,16 @@ def home(request):
     buffer = BytesIO()
     img.save(buffer, format="PNG")
     qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
-    if query:
-        products = products.filter(
-            Q(name__icontains=query) |
-            Q(description__icontains=query)
-        )
 
+    # 🔹 Rendu du template
     return render(request, 'home.html', {
         'home_data': home_data,
         'products': products,
         'slides': slides,
         'query': query,
-        "qr_code": qr_code_base64
+        'qr_code': qr_code_base64,
+        'table': request.session.get("table")  # récupère la table en session
     })
-
 # =================== COMMANDE ===================
 def commande(request, product_id):
     product = get_object_or_404(Product, id=product_id)
@@ -247,16 +260,22 @@ def panier_view(request):
     return render(request, 'panier.html', context)
 
 # views.py
-
 def checkout_view(request):
+    # 🔹 Récupérer le numéro de table depuis la session
+    table_number = request.session.get("table")
+    table = None
+    if table_number:
+        try:
+            table = Table.objects.get(number=table_number)
+        except Table.DoesNotExist:
+            table = None  # Ignore si la table n'existe pas
 
     # ===================== GET =====================
     if request.method == "GET":
-        return render(request, "checkout.html")
+        return render(request, "checkout.html", {"table": table})
 
     # ===================== POST =====================
     if request.method == "POST":
-
         # Récupérer le panier envoyé depuis le front (localStorage)
         cart_items_raw = request.POST.get("cart_items")
         try:
@@ -290,8 +309,7 @@ def checkout_view(request):
                 messages.error(request, f"Stock insuffisant pour {product.name}")
                 return redirect("panier")
 
-            total_item = float(product.price) * quantity
-            total_general += total_item
+            total_general += product.price * quantity
 
             # Mise à jour stock
             product.quantity -= quantity
@@ -299,6 +317,7 @@ def checkout_view(request):
 
         # ===================== Création commande =====================
         commande = Commande.objects.create(
+            table=table,
             customer_name=customer_name,
             customer_email=customer_email,
             customer_phone=customer_phone,
@@ -317,21 +336,24 @@ def checkout_view(request):
             )
 
         # ===================== Envoi email =====================
-        # Au propriétaire
-        send_mail(
-            subject=f"Nouvelle commande #{commande.id}",
-            message=f"Une nouvelle commande a été passée par {customer_name}.\nTotal: {total_general} FCFA",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[settings.OWNER_EMAIL],
-        )
+        try:
+            # Propriétaire
+            send_mail(
+                subject=f"Nouvelle commande #{commande.id}",
+                message=f"Une nouvelle commande a été passée par {customer_name}.\nTotal: {total_general} FCFA",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[settings.OWNER_EMAIL],
+            )
 
-        # Au livreur
-        send_mail(
-            subject=f"Nouvelle commande à livrer #{commande.id}",
-            message=f"Commande #{commande.id} à livrer.\nAdresse client: {customer_address}\nTéléphone: {customer_phone}",
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[settings.DELIVERY_EMAIL],
-        )
+            # Livreur
+            send_mail(
+                subject=f"Nouvelle commande à livrer #{commande.id}",
+                message=f"Commande #{commande.id} à livrer.\nAdresse client: {customer_address}\nTéléphone: {customer_phone}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[settings.DELIVERY_EMAIL],
+            )
+        except Exception as e:
+            print("Erreur envoi mail:", e)
 
         # ===================== Notification WebSocket =====================
         try:
@@ -347,10 +369,8 @@ def checkout_view(request):
             print("Erreur notification WebSocket:", e)
 
         # ===================== Retour et vidage panier =====================
-        # Ici on n’utilise plus la session Django, car le panier vient de localStorage
         messages.success(request, "Commande validée avec succès ✅")
-        return redirect("commande_confirmation", commande.id)
-
+        return redirect("commande_confirmation", commande.id)     
 def panier_ajouter(request, product_id):
     panier = request.session.get('panier', {})
     produit = get_object_or_404(Product, id=product_id)
@@ -382,4 +402,12 @@ def panier_detail(request):
     return render(request, 'panier.html', {
         'panier': panier,
         'total': total
+    })
+
+def kitchen(request):
+
+    commandes = Commande.objects.filter(is_delivered=False).order_by("-created_at")
+
+    return render(request, "kitchen.html", {
+        "commandes": commandes
     })
