@@ -4,264 +4,343 @@
 
 <head>
   <meta charset="utf-8">
-  <title>{{ home_data.site_name|default:"Ma Boutique" }}</title>
+  <title>{{ home_data.site_name|default:"FoodApp Pro" }}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <!-- BOOTSTRAP -->
+  <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Fonts & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 
   <style>
+    /* ===== GLOBAL ===== */
     body {
-      background: #fff3e0;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #f5f7fa, #eef1f5);
     }
 
-    .navbar-brand img {
-      height: 32px;
-      object-fit: contain;
+    /* ===== NAVBAR ===== */
+    .navbar {
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(10px);
+      position: sticky;
+      top: 0;
+      z-index: 999;
     }
 
-    .carousel-item img {
-      max-height: 350px;
+    /* ===== SEARCH ===== */
+    .search-box input {
+      border-radius: 30px;
+    }
+
+    .search-box button {
+      border-radius: 30px;
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      background: white;
+      border-radius: 15px;
+      padding: 10px;
+    }
+
+    .sidebar li {
+      padding: 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .sidebar li:hover {
+      background: linear-gradient(135deg, #ffc107, #ff9800);
+      color: white;
+    }
+
+    /* ===== CAROUSEL ===== */
+    .carousel img {
+      height: 320px;
       object-fit: cover;
+      border-radius: 15px;
     }
 
     .carousel-caption {
-      background: rgba(0, 0, 0, 0.45);
-      border-radius: 8px;
-      padding: 15px;
-      color: #fff;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 10px;
     }
 
-    .product-card img,
-    .product-card .card-img-top {
+    /* ===== PRODUCT CARD ===== */
+    .product-card {
+      border: none;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+      transition: 0.3s;
+    }
+
+    .product-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+    }
+
+    .product-card img {
       height: 180px;
       object-fit: cover;
     }
 
-    .product-card {
-      transition: transform .2s, box-shadow .2s;
+    /* ===== BUTTONS ===== */
+    .btn-add {
+      border-radius: 12px;
     }
 
-    .product-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 20px rgba(0, 0, 0, .15);
-    }
-
-    .flash-bar {
-      background: #f68b1e;
+    .btn-buy-now {
+      border-radius: 12px;
+      background: linear-gradient(135deg, #28a745, #20c997);
       color: white;
+      font-weight: 600;
+    }
+
+    .btn-buy-now:hover {
+      opacity: 0.9;
+    }
+
+    /* ===== FLASH ===== */
+    .flash {
+      background: linear-gradient(135deg, #ff5722, #ff9800);
+      color: white;
+      padding: 10px;
+      border-radius: 10px;
       font-weight: bold;
-      border-radius: 5px;
     }
 
-    .sidebar {
-      background: #fff;
-      border-radius: 8px;
-      padding: 10px 0;
-      margin-bottom: 15px;
+    /* ===== BOX ===== */
+    .box {
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
     }
 
-    .sidebar ul li {
-      font-size: 14px;
-      padding: 10px 15px;
-      cursor: pointer;
-      border-bottom: 1px solid #f1f1f1;
-    }
-
-    .sidebar ul li:hover {
-      background: #fdd835;
-      color: #000;
-    }
-
+    /* ===== FOOTER ===== */
     footer {
-      background: #212121;
-      color: #fff;
-      font-size: 14px;
-    }
-
-    .table-alert {
-      position: fixed;
-      top: 70px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1050;
-      width: auto;
-      min-width: 200px;
+      background: #111;
+      color: white;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- ================= NAVBAR ================= -->
-  <nav class="navbar navbar-dark bg-dark shadow-sm py-2">
-    <div class="container-fluid d-flex flex-wrap align-items-center justify-content-between">
+  <!-- ===== NAVBAR ===== -->
+  <nav class="navbar navbar-dark px-3">
 
-      <a class="navbar-brand d-flex align-items-center mb-2 mb-md-0" href="{% url 'home' %}">
-        {% if home_data.logo %}
-        <img src="{{ home_data.logo.url }}" alt="logo">
-        {% endif %}
-        <strong class="ms-2">{{ home_data.site_name|default:"Ma Boutique" }}</strong>
-      </a>
+    <a class="navbar-brand d-flex align-items-center" href="{% url 'home' %}">
+      {% if home_data.logo %}
+      <img src="{{ home_data.logo.url }}" height="35">
+      {% endif %}
+      <strong class="ms-2">{{ home_data.site_name }}</strong>
+    </a>
 
-      <!-- recherche -->
-      <form method="GET" action="{% url 'home' %}" class="d-flex flex-grow-1 mx-2 mb-2 mb-md-0">
-        <input class="form-control me-2" type="search" name="q" placeholder="Rechercher un plat..." value="{{ query }}">
-        <button class="btn btn-warning fw-bold">Rechercher</button>
-      </form>
+    <form method="GET" class="d-flex w-50 search-box">
+      <input type="text" name="q" class="form-control me-2" placeholder="Rechercher...">
+      <button class="btn btn-warning">🔍</button>
+    </form>
 
-      <!-- bouton panier -->
-      <a href="/panier/" class="btn btn-warning position-relative mb-2 mb-md-0">
-        🛒 Commande
-        <span id="panier-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none">
-          0
-        </span>
-      </a>
+    <a href="{% url 'panier' %}" class="btn btn-warning position-relative">
+      🛒
+      <span id="panier-badge" class="badge bg-danger position-absolute top-0 start-100 translate-middle"></span>
+    </a>
 
-    </div>
   </nav>
 
-  <!-- ================= NUMÉRO DE TABLE ================= -->
+  <!-- ===== TABLE ===== -->
   {% if table %}
-  <div class="alert alert-info table-alert text-center">
-    ⚡ Vous êtes à la Table N° {{ table }}
+  <div class="alert alert-info text-center mt-2">
+    Table N° {{ table }}
   </div>
   {% endif %}
 
-  <!-- ================= CONTENU PRINCIPAL ================= -->
   <div class="container-fluid mt-3">
-
     <div class="row">
 
-      <!-- SIDEBAR -->
-      <aside class="col-12 col-md-3 col-lg-2">
-        <div class="sidebar shadow-sm">
-          <ul class="list-unstyled mb-0">
+      <!-- ===== SIDEBAR ===== -->
+      <div class="col-lg-2 d-none d-lg-block">
+        <div class="sidebar">
+          <ul class="list-unstyled">
             <li>🍔 Burgers</li>
             <li>🍕 Pizzas</li>
             <li>🥗 Salades</li>
-            <li>🍣 Sushi</li>
             <li>🍰 Desserts</li>
-            <li>🥤 Boissons</li>
-            <li>🌯 Wraps</li>
-            <li>🍜 Soupes</li>
           </ul>
         </div>
-      </aside>
+      </div>
 
-      <!-- CAROUSEL -->
-      <section class="col-12 col-md-6 col-lg-7 mb-3">
-        <div id="homeCarousel" class="carousel slide shadow-sm rounded" data-bs-ride="carousel">
+      <!-- ===== CAROUSEL ===== -->
+      <div class="col-lg-7">
+        <div id="carousel" class="carousel slide">
           <div class="carousel-inner">
             {% for slide in slides %}
             <div class="carousel-item {% if forloop.first %}active{% endif %}">
-              {% if slide.image %}
-              <img src="{{ slide.image.url }}" class="d-block w-100 img-fluid" loading="lazy">
-              {% else %}
-              <img src="{% static 'default_slide.jpg' %}" class="d-block w-100 img-fluid">
-              {% endif %}
-              <div class="carousel-caption d-none d-md-block">
+              <img src="{{ slide.image.url }}" class="w-100">
+              <div class="carousel-caption">
                 <h5>{{ slide.title }}</h5>
-                <p>{{ slide.message|safe }}</p>
-                {% if slide.action_text %}
-                <a href="{{ slide.action_link }}" class="btn btn-warning btn-sm">Commander</a>
-                {% endif %}
+                <p>{{ slide.message }}</p>
               </div>
             </div>
             {% endfor %}
           </div>
         </div>
-      </section>
+      </div>
 
-      <!-- ASSISTANCE + QR -->
-      <aside class="col-12 col-md-3 col-lg-3 mb-3">
-        <div class="bg-white shadow-sm rounded p-3 text-center">
-          <h6>📞 Centre d’assistance</h6>
-          <p class="small mb-1">Service client 24/7</p>
+      <!-- ===== QR / SUPPORT ===== -->
+      <div class="col-lg-3">
+        <div class="box p-3 text-center">
+          <h6>Support 24/7</h6>
           <strong class="text-danger">2520 006 161</strong>
-          <div class="mt-3">
-            <h6>📱 Scanner pour accéder</h6>
-            <img src="data:image/png;base64,{{ qr_code }}" class="img-fluid" style="max-width:120px">
-          </div>
+          <hr>
+          <img src="data:image/png;base64,{{ qr_code }}" width="120">
         </div>
-      </aside>
+      </div>
 
     </div>
-
   </div>
 
-  <!-- ================= FLASH SALES ================= -->
+  <!-- ===== FLASH ===== -->
   <div class="container mt-3">
-    <div class="flash-bar p-2 rounded d-flex justify-content-between align-items-center">
-      <span>⚡ Plat du jour</span>
+    <div class="flash d-flex justify-content-between">
+      <span>🔥 Plat du jour</span>
       <span>⏱️ Offre limitée</span>
     </div>
   </div>
 
-  <!-- ================= PRODUITS ================= -->
-  <div class="container py-3">
+  <!-- ===== PRODUITS ===== -->
+  <div class="container py-4">
     <div class="row g-3">
+
       {% for product in products %}
       <div class="col-6 col-md-4 col-lg-3">
-        <div class="card product-card h-100">
+
+        <div class="card product-card">
+
           {% if product.image %}
-          <img src="{{ product.image.url }}" class="card-img-top img-fluid" loading="lazy">
+          <img src="{{ product.image.url }}">
+          {% else %}
+          <img src="{% static 'images/default-product.jpg' %}">
           {% endif %}
-          <div class="card-body d-flex flex-column">
-            <h6>{{ product.name }}</h6>
-            <p class="text-muted mb-1">{{ product.category }}</p>
-            <strong class="text-danger mb-2">{{ product.price }} FCFA</strong>
-            <div class="mt-auto d-grid gap-1">
-              <a href="{% url 'product_detail' product.id %}" class="btn btn-sm btn-outline-primary w-100">
-                👁️ Voir détails
-              </a>
-              {% if product.quantity > 0 %}
-              <span class="badge bg-success">Disponible</span>
-              {% else %}
-              <span class="badge bg-danger">Indisponible</span>
-              <button class="btn btn-sm btn-secondary w-100" disabled>Indisponible</button>
-              {% endif %}
+
+          <div class="p-3">
+
+            <h6 class="fw-bold">{{ product.name }}</h6>
+            <small class="text-muted">{{ product.category }}</small>
+
+            <div class="d-flex justify-content-between mt-2">
+              <strong class="text-danger">{{ product.price }} FCFA</strong>
             </div>
+
+            <!-- ADD TO CART -->
+            <button class="btn btn-warning w-100 mt-2 add-to-cart" data-id="{{ product.id }}"
+              data-name="{{ product.name }}" data-price="{{ product.price }}"
+              data-image="{% if product.image %}{{ product.image.url }}{% endif %}">
+              ➕ Ajouter
+            </button>
+
+
+            <!-- {% if commande %}
+            <a href="{% url 'payer_commande' commande.id %}" class="btn btn-success">
+                💳 Payer avec Mobile Money
+            </a>
+            {% else %}
+            <a href="#" class="btn btn-secondary disabled">Aucune commande</a>
+            {% endif %} -->
+            <!-- BUY NOW -->
+            <button class="btn btn-buy-now w-100 mt-2 buy-now" data-id="{{ product.id }}" data-name="{{ product.name }}"
+              data-price="{{ product.price }}" data-image="{% if product.image %}{{ product.image.url }}{% endif %}">
+              ⚡ Commander maintenant
+            </button>
+
+            <a href="{% url 'product_detail' product.id %}" class="btn btn-outline-dark w-100 mt-2">
+              👁️ Voir
+            </a>
+
           </div>
+
         </div>
+
       </div>
       {% endfor %}
+
     </div>
   </div>
 
-  <!-- ================= FOOTER ================= -->
-  <footer class="py-3 mt-4">
-    <div class="container text-center">
-      <p class="mb-1">{{ home_data.footer_message|safe }}</p>
-      <p class="mb-1">📍 Adresse : Abidjan</p>
-      <p class="mb-1">🕒 Horaires : 08h00 - 22h00</p>
-      {% if home_data.logo %}
-      <img src="{{ home_data.logo.url }}" height="32">
-      {% endif %}
-    </div>
+  <!-- ===== FOOTER ===== -->
+  <footer class="text-center py-3">
+    <p>{{ home_data.footer_message|safe }}</p>
   </footer>
 
-  <!-- ================= SCRIPTS ================= -->
+  <!-- ===== JS ===== -->
   <script>
-    // WebSocket notifications
-    const ws = new WebSocket('ws://' + window.location.host + '/ws/notifications/');
-    ws.onmessage = function(e) {
-      const data = JSON.parse(e.data);
-      alert(data.message);
-    }
 
-    // Panier badge
+    // UPDATE BADGE
     function updatePanierBadge() {
-      const cart = JSON.parse(localStorage.getItem('cart')) || [];
-      const count = cart.reduce((acc, item) => acc + item.qty, 0);
-      const badge = document.getElementById('panier-badge');
-      badge.style.display = count > 0 ? 'inline-block' : 'none';
+      let cart = JSON.parse(localStorage.getItem("cart")) || [];
+      let count = cart.reduce((a, b) => a + b.qty, 0);
+      const badge = document.getElementById("panier-badge");
       badge.innerText = count;
+      badge.style.display = count > 0 ? "inline-block" : "none";
     }
 
-    document.addEventListener('DOMContentLoaded', updatePanierBadge);
+    // ADD TO CART
+    document.addEventListener("click", function (e) {
+
+      if (e.target.closest(".add-to-cart")) {
+        const btn = e.target.closest(".add-to-cart");
+
+        let product = {
+          id: btn.dataset.id,
+          name: btn.dataset.name,
+          price: parseFloat(btn.dataset.price),
+          image: btn.dataset.image,
+          qty: 1
+        };
+
+        let cart = JSON.parse(localStorage.getItem("cart")) || [];
+        let exist = cart.find(p => p.id == product.id);
+
+        if (exist) {
+          exist.qty++;
+        } else {
+          cart.push(product);
+        }
+
+        localStorage.setItem("cart", JSON.stringify(cart));
+        updatePanierBadge();
+
+        btn.innerText = "✅ Ajouté";
+        setTimeout(() => btn.innerText = "➕ Ajouter", 1000);
+      }
+
+      // BUY NOW
+      if (e.target.closest(".buy-now")) {
+        const btn = e.target.closest(".buy-now");
+
+        let product = {
+          id: btn.dataset.id,
+          name: btn.dataset.name,
+          price: parseFloat(btn.dataset.price),
+          image: btn.dataset.image,
+          qty: 1
+        };
+
+        localStorage.setItem("checkout_cart", JSON.stringify([product]));
+        window.location.href = "{% url 'checkout' %}";
+      }
+
+    });
+
+    updatePanierBadge();
+
   </script>
 
 </body>
+
 </html>

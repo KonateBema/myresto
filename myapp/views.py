@@ -20,24 +20,30 @@ import base64
 from io import BytesIO
 from .models import Product, HomePage, HomeSlide, Commande ,CommandeItem
 from .forms import CommandeForm
-from reportlab.platypus import Table, TableStyle  # ✅ IMPORT manquant
-
+# from reportlab.platypus import Table, TableStyle  # ✅ IMPORT manquant
+from .models import Table
 # myapp/views.py
 from django.core.mail import send_mail
 # Pour WebSocket
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
+from reportlab.platypus import  Paragraph, SimpleDocTemplate, Spacer,Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import Table as PDFTable, TableStyle
+import requests
+import uuid
+from django.http import JsonResponse
 # =================== HOME ===================
+
 def home(request):
     # 🔹 Récupération du numéro de table depuis l'URL
     table_number = request.GET.get("table")
     if table_number:
         try:
-            # On s'assure que c'est bien un entier
             table_number = int(table_number)
             request.session["table"] = table_number
         except ValueError:
-            table_number = None  # Ignore si ce n'est pas un nombre
+            table_number = None
 
     # 🔹 Données pour la page d'accueil
     home_data = HomePage.objects.first()
@@ -66,6 +72,71 @@ def home(request):
     img.save(buffer, format="PNG")
     qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
 
+    # 🔹 Récupération ou création d'une commande pour l'utilisateur (optionnel)
+    commande = None
+
+    # 🔹 Contexte à passer au template
+    context = {
+        "home_data": home_data,
+        "slides": slides,
+        "products": products,
+        "query": query,
+        "qr_code": qr_code_base64,
+        "table": request.session.get("table"),
+        "commande": commande,
+    }
+
+    # 🔹 Rendu du template
+    return render(request, 'home.html', context)
+    
+def home1(request):
+    # 🔹 Récupération du numéro de table depuis l'URL
+    table_number = request.GET.get("table")
+    if table_number:
+        try:
+            # On s'assure que c'est bien un entier
+            table_number = int(table_number)
+            request.session["table"] = table_number
+        except ValueError:
+            table_number = None  # Ignore si ce n'est pas un nombre
+
+    # 🔹 Données pour la page d'accueil
+  
+ 
+    home_data = HomePage.objects.first()
+    slides = HomeSlide.objects.all()
+    query = request.GET.get('q')
+    products = Product.objects.filter(quantity__gt=0)
+
+    if query:
+        products = products.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query)
+        )
+
+    # 🔹 Génération QR code pour la page d'accueil
+    url = request.build_absolute_uri('/')  # lien vers la home
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=4,
+        border=2,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+# récupère ou crée une commande pour l'utilisateur (exemple)
+    commande = None
+    context = {
+        "products": Product.objects.all(),
+        "slides": Slide.objects.all(),
+        "home_data": HomeData.objects.first(),
+        "commande": commande,  # <-- passe la commande au template
+    }
     # 🔹 Rendu du template
     return render(request, 'home.html', {
         'home_data': home_data,
@@ -109,49 +180,57 @@ def commande_confirmation(request, commande_id):
 # =================== GENERATION PDF ===================
 
 # views.py
-
+from reportlab.lib.units import cm
+from reportlab.platypus import Image
 def generate_pdf(request, commande_id):
     commande = get_object_or_404(Commande, id=commande_id)
 
+    # Réponse HTTP
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="commande_{commande.id}.pdf"'
 
-    p = canvas.Canvas(response, pagesize=letter)
-    width, height = letter
+    # Création du document
+    doc = SimpleDocTemplate(
+        response,
+        pagesize=letter,
+        rightMargin=50,
+        leftMargin=50,
+        topMargin=50,
+        bottomMargin=50
+    )
+    elements = []
+    styles = getSampleStyleSheet()
+    style_normal = styles["Normal"]
+    style_bold = styles["Heading4"]
 
     # Logo
     logo_path = os.path.join(settings.MEDIA_ROOT, 'logo.png')
     if os.path.exists(logo_path):
-        p.drawImage(ImageReader(logo_path), 50, height - 60, width=80, height=30)
+        logo = Image(logo_path, width=6*cm, height=3*cm)
+        elements.append(logo)
+        elements.append(Spacer(1, 12))
 
     # Titre
-    p.setFont("Helvetica-Bold", 16)
-    p.drawString(180, height - 50, f"Confirmation de Commande - #{commande.id}")
-    p.line(50, height - 65, 550, height - 65)
-
-    y = height - 100
+    elements.append(Paragraph(f"<b>Confirmation de Commande - #{commande.id}</b>", styles["Title"]))
+    elements.append(Spacer(1, 20))
 
     # Infos client
     client_info = [
         ("Client", commande.customer_name),
         ("Email", commande.customer_email),
         ("Téléphone", commande.customer_phone),
-        ("Adresse", commande.customer_address),
+        ("Adresse de livraison", commande.customer_address),
         ("Date", commande.created_at.strftime("%d/%m/%Y %H:%M")),
     ]
     for label, value in client_info:
-        p.setFont("Helvetica-Bold", 12)
-        p.drawString(100, y, f"{label} :")
-        p.setFont("Helvetica", 12)
-        p.drawString(250, y, str(value))
-        y -= 20
+        elements.append(Paragraph(f"<b>{label} :</b> {value}", style_normal))
+        elements.append(Spacer(1, 5))
 
-    y -= 10
-    p.setFont("Helvetica-Bold", 12)
-    p.drawString(100, y, "Produits commandés :")
-    y -= 20
+    elements.append(Spacer(1, 15))
+    elements.append(Paragraph("<b>Produits commandés :</b>", style_bold))
+    elements.append(Spacer(1, 10))
 
-    # Construire le tableau
+    # Construire le tableau des produits
     table_data = [["Produit", "Quantité", "Prix Unitaire", "Sous-total"]]
     total = 0
     for item in commande.items.all():
@@ -164,35 +243,28 @@ def generate_pdf(request, commande_id):
             f"{subtotal:,.0f} FCFA"
         ])
 
-    # Créer le tableau avec ReportLab
-    table = Table(table_data, colWidths=[200, 70, 100, 100])
+    # Style du tableau
+    table = PDFTable(table_data, colWidths=[8*cm, 3*cm, 4*cm, 4*cm])
     table.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (-1,0), colors.lightblue),
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#0d6efd')),
         ('TEXTCOLOR', (0,0), (-1,0), colors.white),
         ('ALIGN', (1,1), (-1,-1), 'CENTER'),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
         ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.whitesmoke, colors.lightgrey])
     ]))
-
-    # Dessiner le tableau
-    table.wrapOn(p, width, height)
-    table_height = len(table_data) * 20
-    table.drawOn(p, 50, y - table_height)
-
-    y = y - table_height - 30
+    elements.append(table)
+    elements.append(Spacer(1, 20))
 
     # Total général
-    p.setFont("Helvetica-Bold", 14)
-    p.drawString(100, y, f"Total : {total:,.0f} FCFA")
-    y -= 30
-    p.setFont("Helvetica", 12)
-    p.drawString(100, y, "Merci pour votre confiance 🚀")
+    elements.append(Paragraph(f"<b>Total :</b> {total:,.0f} FCFA", style_bold))
+    elements.append(Spacer(1, 10))
+    elements.append(Paragraph("Merci pour votre confiance 🚀", style_normal))
 
-    # Fin du PDF
-    p.showPage()
-    p.save()
+    # Générer le PDF
+    doc.build(elements)
 
     return response
 def dashboard_view(self, request):
@@ -365,143 +437,301 @@ def panier_view(request):
 
 
 
+# def checkout_view(request):
+#     # 🔹 Récupérer le numéro de table depuis la session
+#     table_number = request.session.get("table")
+#     table = None
+#     if table_number:
+#         try:
+#             table = Table.objects.get(number=table_number)
+#         except Table.DoesNotExist:
+#             table = None  # Ignore si la table n'existe pas
+
+#     # ===================== GET =====================
+#     if request.method == "GET":
+#         return render(request, "checkout.html", {"table": table})
+
+#     # ===================== POST =====================
+#     if request.method == "POST":
+
+#         # Récupérer le panier envoyé depuis le front (localStorage)
+#         cart_items_raw = request.POST.get("cart_items")
+
+#         try:
+#             cart_items = json.loads(cart_items_raw) if cart_items_raw else []
+#         except json.JSONDecodeError:
+#             messages.error(request, "Erreur : panier invalide.")
+#             return redirect("panier")
+
+#         if not cart_items:
+#             messages.error(request, "Votre panier est vide.")
+#             return redirect("panier")
+
+#         # ===================== Infos client =====================
+#         customer_name = request.POST.get("customer_name")
+#         customer_email = request.POST.get("customer_email")
+#         customer_phone = request.POST.get("customer_phone")
+#         customer_address = request.POST.get("customer_address")
+
+#         if not customer_name or not customer_phone or not customer_address:
+#             messages.error(request, "Informations client manquantes.")
+#             return redirect("checkout")
+
+#         total_general = 0
+#         details_produits = ""
+#         produits_valides = []
+
+#         # ===================== Vérification stock =====================
+#         for item in cart_items:
+#             product = get_object_or_404(Product, id=item["id"])
+#             quantity = int(item["qty"])
+
+#             if product.quantity < quantity:
+#                 messages.error(request, f"Stock insuffisant pour {product.name}")
+#                 return redirect("panier")
+
+#             total_general += product.price * quantity
+
+#             produits_valides.append({
+#                 "product": product,
+#                 "quantity": quantity
+#             })
+
+#             details_produits += f"{product.name} - Quantité: {quantity}\n"
+
+#         # ===================== Création commande =====================
+#         commande = Commande.objects.create(
+#             table=table,
+#             customer_name=customer_name,
+#             customer_email=customer_email,
+#             customer_phone=customer_phone,
+#             customer_address=customer_address,
+#             total=total_general
+#         )
+
+#         # ===================== Enregistrer produits + réduire stock =====================
+#         for item in produits_valides:
+#             product = item["product"]
+#             quantity = item["quantity"]
+
+#             CommandeItem.objects.create(
+#                 commande=commande,
+#                 product=product,
+#                 quantity=quantity,
+#                 price=product.price
+#             )
+
+#             # product.quantity -= quantity
+#             # product.save()
+#             if product.quantity >= quantity:
+#                product.quantity -= quantity
+#                product.save()
+#             else:
+#                messages.error(request, f"Stock insuffisant pour {product.name}")
+#                return redirect("panier")
+#         # ===================== Email propriétaire =====================
+#         send_mail(
+#             subject=f"Nouvelle commande #{commande.id}",
+#             message=(
+#                 f"Une nouvelle commande a été passée par {customer_name}\n"
+#                 f"Téléphone: {customer_phone}\n"
+#                 f"Adresse: {customer_address}\n\n"
+#                 f"Produits commandés:\n{details_produits}\n"
+#                 f"Total: {total_general} FCFA"
+#             ),
+#             from_email=settings.DEFAULT_FROM_EMAIL,
+#             recipient_list=[settings.OWNER_EMAIL],
+#         )
+
+#         # ===================== Email livreur =====================
+#         send_mail(
+#             subject=f"Nouvelle commande à livrer #{commande.id}",
+#             message=(
+#                 f"Commande #{commande.id}\n"
+#                 f"Client: {customer_name}\n"
+#                 f"Téléphone: {customer_phone}\n"
+#                 f"Adresse: {customer_address}\n\n"
+#                 f"Produits:\n{details_produits}"
+#             ),
+#             from_email=settings.DEFAULT_FROM_EMAIL,
+#             recipient_list=[settings.DELIVERY_EMAIL],
+#         )
+
+#         # ===================== Notification WebSocket =====================
+#         try:
+#             channel_layer = get_channel_layer()
+#             async_to_sync(channel_layer.group_send)(
+#                 "notifications",
+#                 {
+#                     "type": "send_notification",
+#                     "message": f"Nouvelle commande #{commande.id} passée par {customer_name}"
+#                 }
+#             )
+#         except Exception as e:
+#             print("Erreur notification WebSocket:", e)
+
+#         # ===================== Retour =====================
+#         messages.success(request, "Commande validée avec succès ✅")
+#         return redirect("commande_confirmation", commande.id)
+
 def checkout_view(request):
-    # 🔹 Récupérer le numéro de table depuis la session
+
+    # ================= TABLE =================
     table_number = request.session.get("table")
     table = None
+
     if table_number:
         try:
             table = Table.objects.get(number=table_number)
         except Table.DoesNotExist:
-            table = None  # Ignore si la table n'existe pas
+            table = None
 
-    # ===================== GET =====================
+    # ================= GET =================
     if request.method == "GET":
         return render(request, "checkout.html", {"table": table})
 
-    # ===================== POST =====================
-    if request.method == "POST":
+    # ================= POST =================
+    cart_items_raw = request.POST.get("cart_items")
 
-        # Récupérer le panier envoyé depuis le front (localStorage)
-        cart_items_raw = request.POST.get("cart_items")
+    try:
+        cart_items = json.loads(cart_items_raw) if cart_items_raw else []
+    except json.JSONDecodeError:
+        messages.error(request, "Panier invalide.")
+        return redirect("panier")
 
-        try:
-            cart_items = json.loads(cart_items_raw) if cart_items_raw else []
-        except json.JSONDecodeError:
-            messages.error(request, "Erreur : panier invalide.")
+    if not cart_items:
+        messages.error(request, "Votre panier est vide.")
+        return redirect("panier")
+
+    # ================= CLIENT =================
+    customer_name = request.POST.get("customer_name")
+    customer_email = request.POST.get("customer_email")
+    customer_phone = request.POST.get("customer_phone")
+    customer_address = request.POST.get("customer_address")
+    commune = request.POST.get("commune")
+
+    if not customer_name or not customer_phone or not customer_address or not commune:
+        messages.error(request, "Informations manquantes.")
+        return redirect("checkout")
+
+    # ================= LIVRAISON =================
+    delivery_fees = {
+        "cocody": 1500,
+        "yopougon": 2000,
+        "abobo": 2500,
+        "plateau": 1000,
+        "marcory": 1200
+    }
+
+    delivery_fee = delivery_fees.get(commune, 0)
+
+    total_general = 0
+    details_produits = ""
+    produits_valides = []
+
+    # ================= STOCK =================
+    for item in cart_items:
+        product = get_object_or_404(Product, id=item["id"])
+        quantity = int(item["qty"])
+
+        if product.quantity < quantity:
+            messages.error(request, f"Stock insuffisant pour {product.name}")
             return redirect("panier")
 
-        if not cart_items:
-            messages.error(request, "Votre panier est vide.")
+        total_general += product.price * quantity
+
+        produits_valides.append({
+            "product": product,
+            "quantity": quantity
+        })
+
+        details_produits += f"{product.name} - Quantité: {quantity}\n"
+
+    # ✅ Ajouter frais de livraison
+    total_general += delivery_fee
+
+    # ================= COMMANDE =================
+    commande = Commande.objects.create(
+        table=table,
+        customer_name=customer_name,
+        customer_email=customer_email,
+        customer_phone=customer_phone,
+        customer_address=customer_address,
+        total=total_general
+    )
+
+    # ================= ITEMS + STOCK =================
+    for item in produits_valides:
+        product = item["product"]
+        quantity = item["quantity"]
+
+        CommandeItem.objects.create(
+            commande=commande,
+            product=product,
+            quantity=quantity,
+            price=product.price
+        )
+
+        # sécurité stock
+        if product.quantity >= quantity:
+            product.quantity -= quantity
+            product.save()
+        else:
+            messages.error(request, f"Stock insuffisant pour {product.name}")
             return redirect("panier")
 
-        # ===================== Infos client =====================
-        customer_name = request.POST.get("customer_name")
-        customer_email = request.POST.get("customer_email")
-        customer_phone = request.POST.get("customer_phone")
-        customer_address = request.POST.get("customer_address")
+    # ================= EMAIL PROPRIÉTAIRE =================
+    send_mail(
+        subject=f"Nouvelle commande #{commande.id}",
+        message=(
+            f"Client: {customer_name}\n"
+            f"Téléphone: {customer_phone}\n"
+            f"Adresse: {customer_address}\n"
+            f"Commune: {commune}\n\n"
+            f"Produits:\n{details_produits}\n"
+            f"Livraison: {delivery_fee} FCFA\n"
+            f"Total: {total_general} FCFA"
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.OWNER_EMAIL],
+    )
 
-        if not customer_name or not customer_phone or not customer_address:
-            messages.error(request, "Informations client manquantes.")
-            return redirect("checkout")
+    # ================= EMAIL LIVREUR =================
+    send_mail(
+        subject=f"Commande à livrer #{commande.id}",
+        message=(
+            f"Commande #{commande.id}\n"
+            f"Client: {customer_name}\n"
+            f"Téléphone: {customer_phone}\n"
+            f"Commune: {commune}\n\n"
+            f"Adresse: {customer_address}\n"
+            f"Produits:\n{details_produits}"
+            f"\nLivraison: {delivery_fee} FCFA"
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.DELIVERY_EMAIL],
+    )
 
-        total_general = 0
-        details_produits = ""
-        produits_valides = []
-
-        # ===================== Vérification stock =====================
-        for item in cart_items:
-            product = get_object_or_404(Product, id=item["id"])
-            quantity = int(item["qty"])
-
-            if product.quantity < quantity:
-                messages.error(request, f"Stock insuffisant pour {product.name}")
-                return redirect("panier")
-
-            total_general += product.price * quantity
-
-            produits_valides.append({
-                "product": product,
-                "quantity": quantity
-            })
-
-            details_produits += f"{product.name} - Quantité: {quantity}\n"
-
-        # ===================== Création commande =====================
-        commande = Commande.objects.create(
-            table=table,
-            customer_name=customer_name,
-            customer_email=customer_email,
-            customer_phone=customer_phone,
-            customer_address=customer_address,
-            total=total_general
+    # ================= WEBSOCKET =================
+    try:
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "notifications",
+            {
+                "type": "send_notification",
+                "message": f"Nouvelle commande #{commande.id} - {customer_name}"
+            }
         )
+    except Exception as e:
+        print("Erreur WebSocket:", e)
 
-        # ===================== Enregistrer produits + réduire stock =====================
-        for item in produits_valides:
-            product = item["product"]
-            quantity = item["quantity"]
+    # ================= SUCCESS =================
+    messages.success(
+        request,
+        f"Commande validée ✅ (Livraison: {delivery_fee} FCFA)"
+    )
 
-            CommandeItem.objects.create(
-                commande=commande,
-                product=product,
-                quantity=quantity,
-                price=product.price
-            )
-
-            # product.quantity -= quantity
-            # product.save()
-            if product.quantity >= quantity:
-               product.quantity -= quantity
-               product.save()
-            else:
-               messages.error(request, f"Stock insuffisant pour {product.name}")
-               return redirect("panier")
-        # ===================== Email propriétaire =====================
-        send_mail(
-            subject=f"Nouvelle commande #{commande.id}",
-            message=(
-                f"Une nouvelle commande a été passée par {customer_name}\n"
-                f"Téléphone: {customer_phone}\n"
-                f"Adresse: {customer_address}\n\n"
-                f"Produits commandés:\n{details_produits}\n"
-                f"Total: {total_general} FCFA"
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[settings.OWNER_EMAIL],
-        )
-
-        # ===================== Email livreur =====================
-        send_mail(
-            subject=f"Nouvelle commande à livrer #{commande.id}",
-            message=(
-                f"Commande #{commande.id}\n"
-                f"Client: {customer_name}\n"
-                f"Téléphone: {customer_phone}\n"
-                f"Adresse: {customer_address}\n\n"
-                f"Produits:\n{details_produits}"
-            ),
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[settings.DELIVERY_EMAIL],
-        )
-
-        # ===================== Notification WebSocket =====================
-        try:
-            channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                "notifications",
-                {
-                    "type": "send_notification",
-                    "message": f"Nouvelle commande #{commande.id} passée par {customer_name}"
-                }
-            )
-        except Exception as e:
-            print("Erreur notification WebSocket:", e)
-
-        # ===================== Retour =====================
-        messages.success(request, "Commande validée avec succès ✅")
-        return redirect("commande_confirmation", commande.id)
-
+    return redirect("commande_confirmation", commande.id)
 
 def panier_ajouter(request, product_id):
     panier = request.session.get('panier', {})
@@ -520,11 +750,13 @@ def panier_ajouter(request, product_id):
     request.session['panier'] = panier
     return redirect('panier')
 
+
 def panier_supprimer(request, product_id):
     panier = request.session.get('panier', {})
     panier.pop(str(product_id), None)
     request.session['panier'] = panier
     return redirect('panier')
+
 
 
 def panier_detail(request):
@@ -536,6 +768,10 @@ def panier_detail(request):
         'total': total
     })
 
+
+
+
+
 def kitchen(request):
 
     commandes = Commande.objects.filter(is_delivered=False).order_by("-created_at")
@@ -543,3 +779,47 @@ def kitchen(request):
     return render(request, "kitchen.html", {
         "commandes": commandes
     })
+
+def payer_commande(request, commande_id):
+    commande = get_object_or_404(Commande, id=commande_id)
+
+    transaction_id = str(uuid.uuid4())
+
+    url = "https://api-checkout.cinetpay.com/v2/payment"
+
+    data = {
+        "apikey": settings.CINETPAY_API_KEY,
+        "site_id": settings.CINETPAY_SITE_ID,
+        "transaction_id": transaction_id,
+        "amount": int(commande.total),
+        "currency": "XOF",
+        "description": f"Commande #{commande.id}",
+        "return_url": settings.CINETPAY_RETURN_URL,
+        "notify_url": settings.CINETPAY_NOTIFY_URL,
+        "customer_name": commande.customer_name,
+        "customer_surname": "",
+        "customer_email": commande.customer_email,
+        "customer_phone_number": commande.customer_phone,
+        "customer_address": commande.customer_address,
+        "customer_city": "Abidjan",
+        "customer_country": "CI"
+    }
+
+    response = requests.post(url, json=data)
+    response_data = response.json()
+
+    if response_data.get("code") == "201":
+        payment_url = response_data["data"]["payment_url"]
+        return redirect(payment_url)
+    else:
+        return redirect("commande_confirmation", commande.id)
+
+def payment_notify(request):
+    transaction_id = request.POST.get("transaction_id")
+
+    # ici tu peux vérifier le paiement avec l’API CinetPay
+
+    return JsonResponse({"status": "ok"})
+
+def payment_success(request):
+    return render(request, "payment_success.html")

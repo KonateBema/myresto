@@ -151,30 +151,20 @@
         div.innerHTML = `
 
 <div class="d-flex align-items-center">
-
-<img src="${item.image || '/static/images/default-product.jpg'}" class="product-img me-3">
-
 <div>
 <h6 class="mb-1">${item.name}</h6>
 <small class="text-muted">${item.price} FCFA</small>
 </div>
-
 </div>
-
 <div class="d-flex align-items-center">
-
 <button class="qty-btn me-1 minus" data-index="${index}">
 <i class="fa fa-minus"></i>
 </button>
-
 <input type="text" value="${item.qty}" class="form-control form-control-sm qty-input" readonly>
-
 <button class="qty-btn ms-1 plus" data-index="${index}">
 <i class="fa fa-plus"></i>
 </button>
-
 <span class="ms-4 fw-bold">${subtotal} FCFA</span>
-
 <button class="btn btn-sm btn-outline-danger ms-3 remove" data-index="${index}">
 <i class="fa fa-trash"></i>
 </button>

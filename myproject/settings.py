@@ -35,6 +35,10 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = "bemak4178@gmail.com"
 EMAIL_HOST_PASSWORD = "twcc awcf ydrs dvgq"
 
+CINETPAY_API_KEY = "TON_API_KEY"
+CINETPAY_SITE_ID = "TON_SITE_ID"
+CINETPAY_NOTIFY_URL = "http://127.0.0.1:8000/payment/notify/"
+CINETPAY_RETURN_URL = "http://127.0.0.1:8000/payment/success/"
 
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # OWNER_EMAIL = os.environ.get('lacinakonate93@gmail.com')  # email du propriétaire

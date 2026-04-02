@@ -1,122 +1,252 @@
 {% load humanize %}
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
-    <meta charset="UTF-8">
-    <title>Récapitulatif commande | {{ home_data.site_name }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<meta charset="UTF-8">
+<title>Commande | {{ home_data.site_name }}</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body {
+    background: linear-gradient(135deg, #eef2f7, #f8f9fa);
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* HEADER */
+.header {
+    font-weight: 700;
+    font-size: 1.8rem;
+}
+
+/* CARD PREMIUM */
+.premium-card {
+    border: none;
+    border-radius: 20px;
+    background: white;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    transition: 0.3s;
+}
+
+.premium-card:hover {
+    transform: translateY(-3px);
+}
+
+/* CART ITEM */
+.cart-item {
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+}
+
+/* TOTAL BOX */
+.total-box {
+    background: linear-gradient(135deg, #0d6efd, #0b5ed7);
+    color: white;
+    border-radius: 15px;
+    padding: 20px;
+}
+
+/* BUTTON */
+.btn-premium {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    padding: 14px;
+    transition: 0.3s;
+}
+
+.btn-premium:hover {
+    transform: scale(1.02);
+}
+
+/* INPUT */
+.form-control, .form-select {
+    border-radius: 12px;
+    padding: 10px;
+}
+
+/* BADGE */
+.badge-delivery {
+    background: white;
+    color: #0d6efd;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+    .header {
+        text-align: center;
+    }
+}
+</style>
 </head>
 
-<body class="bg-light">
+<body>
 
-    <div class="container py-4">
-        <h3 class="mb-4">Récapitulatif de votre commande</h3>
+<div class="container py-5">
 
-        <!-- =================== NUMÉRO DE TABLE =================== -->
-        {% if table %}
-        <div class="alert alert-info">
-            🪑 Vous êtes à la <strong>Table N° {{ table.number }}</strong>
+    <h2 class="header mb-4">🧾 Finaliser votre commande</h2>
+
+    <div class="row g-4">
+
+        <!-- 🛒 PANIER -->
+        <div class="col-lg-5">
+
+            <div class="premium-card p-4">
+
+                <h5 class="mb-3">🛒 Votre panier</h5>
+
+                {% if table %}
+                    <div class="alert alert-info py-2">
+                        🪑 Table N° {{ table.number }}
+                    </div>
+                {% endif %}
+
+                <div id="recap-cart"></div>
+
+                <div class="total-box mt-4">
+
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Livraison</span>
+                        <span class="badge-delivery" id="delivery-fee">0 FCFA</span>
+                    </div>
+
+                    <div class="d-flex justify-content-between fs-5 fw-bold">
+                        <span>Total</span>
+                        <span id="total-price">0 FCFA</span>
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
-        {% endif %}
 
-        <!-- =================== RÉCAP PANIER =================== -->
-        <div class="card mb-4">
-            <div class="card-body" id="recap-cart"></div>
-            <h5 class="text-end me-4">Total :
-                <span id="total-price">0</span> FCFA
-            </h5>
-        </div>
+        <!-- 🧾 FORM -->
+        <div class="col-lg-7">
 
-        <!-- =================== FORMULAIRE =================== -->
-        <form method="POST" id="checkout-form">
-            {% csrf_token %}
-            <input type="hidden" name="cart_items" id="cart_items">
+            <form method="POST" id="checkout-form">
+                {% csrf_token %}
+                <input type="hidden" name="cart_items" id="cart_items">
 
-            <!-- Envoyer le numéro de table si présent -->
-            {% if table %}
-            <input type="hidden" name="table_number" value="{{ table.number }}">
-            {% endif %}
+                <div class="premium-card p-4">
 
-            <div class="card">
-                <div class="card-body">
+                    <h5 class="mb-4">📋 Informations</h5>
 
-                    <div class="mb-3">
-                        <label>Nom complet</label>
-                        <input type="text" name="customer_name" class="form-control" required>
+                    <div class="row g-3">
+
+                        <div class="col-md-6">
+                            <input type="text" name="customer_name" class="form-control" placeholder="Nom complet" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <input type="text" name="customer_phone" class="form-control" placeholder="Téléphone" required>
+                        </div>
+
+                        <div class="col-md-12">
+                            <input type="email" name="customer_email" class="form-control" placeholder="Email" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <select name="commune" id="commune" class="form-select" required>
+                                <option value="">Choisir commune</option>
+                                <option value="cocody">Cocody</option>
+                                <option value="yopougon">Yopougon</option>
+                                <option value="abobo">Abobo</option>
+                                <option value="plateau">Plateau</option>
+                                <option value="marcory">Marcory</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-12">
+                            <textarea name="customer_address" class="form-control" rows="3" placeholder="Adresse de livraison" required></textarea>
+                        </div>
+
                     </div>
 
-                    <div class="mb-3">
-                        <label>Email</label>
-                        <input type="email" name="customer_email" class="form-control" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label>Téléphone</label>
-                        <input type="text" name="customer_phone" class="form-control" required>
-                    </div>
-
-                    <div class="mb-3">
-                        <label>Adresse de livraison</label>
-                        <textarea name="customer_address" class="form-control" rows="3" required></textarea>
-                    </div>
-
-                    <div class="mb-3">
-                        <label>Moyen de paiement</label>
-                        <select name="payment" class="form-select" required>
-                            <option value="cash">Paiement à la livraison</option>
-                            <option value="mobile_money">Mobile Money</option>
-                        </select>
-                    </div>
-
-                    <button type="submit" class="btn btn-success w-100 mt-2">
-                        ✅ Valider la commande
+                    <button class="btn btn-premium w-100 mt-4">
+                        🚀 Confirmer la commande
                     </button>
 
                 </div>
-            </div>
-        </form>
+
+            </form>
+
+        </div>
 
     </div>
 
-    <script>
-        // Récupération du panier stocké côté frontend
-        const cart = JSON.parse(localStorage.getItem("checkout_cart")) || [];
-        const recap = document.getElementById("recap-cart");
-        const totalSpan = document.getElementById("total-price");
-        const cartInput = document.getElementById("cart_items");
+</div>
 
-        if (cart.length === 0) {
-            recap.innerHTML = "<p>Votre panier est vide.</p>";
-            totalSpan.innerText = "0";
-        } else {
-            let total = 0;
-            recap.innerHTML = "";
-            cart.forEach(item => {
-                const subtotal = item.price * item.qty;
-                total += subtotal;
-                recap.innerHTML += `
-                    <p>
-                        <strong>${item.name}</strong>
-                        × ${item.qty}
-                        = ${subtotal.toLocaleString()} FCFA
-                    </p>
-                `;
-            });
+<script>
+const cart = JSON.parse(localStorage.getItem("checkout_cart")) || [];
 
-            totalSpan.innerText = total.toLocaleString();
-            cartInput.value = JSON.stringify(cart);
-        }
+const recap = document.getElementById("recap-cart");
+const totalSpan = document.getElementById("total-price");
+const cartInput = document.getElementById("cart_items");
+const communeSelect = document.getElementById("commune");
+const deliverySpan = document.getElementById("delivery-fee");
 
-        // Optionnel : empêcher l'envoi si le panier est vide
-        document.getElementById("checkout-form").addEventListener("submit", function(e) {
-            if (cart.length === 0) {
-                e.preventDefault();
-                alert("Votre panier est vide !");
-            }
-        });
-    </script>
+const deliveryFees = {
+    cocody: 1500,
+    yopougon: 2000,
+    abobo: 2500,
+    plateau: 1000,
+    marcory: 1200
+};
+
+let deliveryFee = 0;
+
+function renderCart() {
+    if (cart.length === 0) {
+        recap.innerHTML = "<p class='text-muted'>Panier vide</p>";
+        totalSpan.innerText = "0 FCFA";
+        return;
+    }
+
+    let total = 0;
+    recap.innerHTML = "";
+
+    cart.forEach(item => {
+        const subtotal = item.price * item.qty;
+        total += subtotal;
+
+        recap.innerHTML += `
+            <div class="cart-item d-flex justify-content-between">
+                <div>
+                    <strong>${item.name}</strong><br>
+                    <small>${item.qty} × ${item.price}</small>
+                </div>
+                <div>${subtotal.toLocaleString()} FCFA</div>
+            </div>
+        `;
+    });
+
+    total += deliveryFee;
+
+    totalSpan.innerText = total.toLocaleString() + " FCFA";
+    deliverySpan.innerText = deliveryFee.toLocaleString() + " FCFA";
+
+    cartInput.value = JSON.stringify(cart);
+}
+
+communeSelect.addEventListener("change", function () {
+    deliveryFee = deliveryFees[this.value] || 0;
+    renderCart();
+});
+
+renderCart();
+
+document.getElementById("checkout-form").addEventListener("submit", function(e) {
+    if (cart.length === 0) {
+        e.preventDefault();
+        alert("Panier vide !");
+    }
+});
+</script>
 
 </body>
-
 </html>
