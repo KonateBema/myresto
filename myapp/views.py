@@ -574,7 +574,7 @@ def panier_view(request):
 #         messages.success(request, "Commande validée avec succès ✅")
 #         return redirect("commande_confirmation", commande.id)
 
-def checkout_view(request):
+# def checkout_view(request):
 
     # ================= TABLE =================
     table_number = request.session.get("table")
@@ -733,6 +733,170 @@ def checkout_view(request):
 
     return redirect("commande_confirmation", commande.id)
 
+
+import json
+from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib import messages
+from django.core.mail import send_mail
+from django.conf import settings
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
+
+def checkout_view(request):
+
+    # ================= TABLE =================
+    table_number = request.session.get("table")
+    table = None
+
+    if table_number:
+        table = Table.objects.filter(number=table_number).first()
+
+    # ================= GET =================
+    if request.method == "GET":
+        return render(request, "checkout.html", {"table": table})
+
+    # ================= POST =================
+    cart_items_raw = request.POST.get("cart_items")
+
+    try:
+        cart_items = json.loads(cart_items_raw) if cart_items_raw else []
+    except json.JSONDecodeError:
+        messages.error(request, "Panier invalide.")
+        return redirect("panier")
+
+    if not cart_items:
+        messages.error(request, "Votre panier est vide.")
+        return redirect("panier")
+
+    # ================= CLIENT =================
+    customer_name = request.POST.get("customer_name")
+    customer_email = request.POST.get("customer_email")
+    customer_phone = request.POST.get("customer_phone")
+    customer_address = request.POST.get("customer_address")
+    commune = request.POST.get("commune")
+
+    if not all([customer_name, customer_phone, customer_address, commune]):
+        messages.error(request, "Informations manquantes.")
+        return redirect("checkout")
+
+    # ================= LIVRAISON =================
+    delivery_fees = {
+        "cocody": 1500,
+        "yopougon": 2000,
+        "abobo": 2500,
+        "plateau": 1000,
+        "marcory": 1200
+    }
+
+    delivery_fee = delivery_fees.get(commune, 0)
+
+    total_general = 0
+    details_produits = ""
+    produits_valides = []
+
+    # ================= STOCK =================
+    for item in cart_items:
+        product = get_object_or_404(Product, id=item["id"])
+        quantity = int(item["qty"])
+
+        if product.quantity < quantity:
+            messages.error(request, f"Stock insuffisant pour {product.name}")
+            return redirect("panier")
+
+        subtotal = product.price * quantity
+        total_general += subtotal
+
+        produits_valides.append({
+            "product": product,
+            "quantity": quantity
+        })
+
+        details_produits += f"{product.name} - Quantité: {quantity} - {subtotal} FCFA\n"
+
+    # ✅ Ajouter livraison
+    total_general += delivery_fee
+
+    # ================= COMMANDE =================
+    commande = Commande.objects.create(
+        table=table,
+        customer_name=customer_name,
+        customer_email=customer_email,
+        customer_phone=customer_phone,
+        customer_address=customer_address,
+        total=total_general,
+        is_paid=False  # important pour paiement
+    )
+
+    # ================= ITEMS + STOCK =================
+    for item in produits_valides:
+        product = item["product"]
+        quantity = item["quantity"]
+
+        CommandeItem.objects.create(
+            commande=commande,
+            product=product,
+            quantity=quantity,
+            price=product.price
+        )
+
+        product.quantity -= quantity
+        product.save()
+
+    # ================= EMAIL PROPRIÉTAIRE =================
+    send_mail(
+        subject=f"Nouvelle commande #{commande.id}",
+        message=(
+            f"Client: {customer_name}\n"
+            f"Téléphone: {customer_phone}\n"
+            f"Adresse: {customer_address}\n"
+            f"Commune: {commune}\n\n"
+            f"Produits:\n{details_produits}\n"
+            f"Livraison: {delivery_fee} FCFA\n"
+            f"Total: {total_general} FCFA"
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.OWNER_EMAIL],
+    )
+
+    # ================= EMAIL LIVREUR =================
+    send_mail(
+        subject=f"Commande à livrer #{commande.id}",
+        message=(
+            f"Commande #{commande.id}\n"
+            f"Client: {customer_name}\n"
+            f"Téléphone: {customer_phone}\n"
+            f"Commune: {commune}\n\n"
+            f"Adresse: {customer_address}\n"
+            f"Produits:\n{details_produits}\n"
+            f"Livraison: {delivery_fee} FCFA"
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.DELIVERY_EMAIL],
+    )
+
+    # ================= WEBSOCKET =================
+    try:
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "notifications",
+            {
+                "type": "send_notification",
+                "message": f"Nouvelle commande #{commande.id} - {customer_name}"
+            }
+        )
+    except Exception as e:
+        print("Erreur WebSocket:", e)
+
+    # ================= SUCCESS =================
+    messages.success(
+        request,
+        f"Commande enregistrée ✅ Choisissez votre mode de paiement"
+    )
+
+    # 🔥 REDIRECTION VERS PAIEMENT
+    return redirect("payment", commande.id)
+
 def panier_ajouter(request, product_id):
     panier = request.session.get('panier', {})
     produit = get_object_or_404(Product, id=product_id)
@@ -780,39 +944,81 @@ def kitchen(request):
         "commandes": commandes
     })
 
-def payer_commande(request, commande_id):
+# def payer_commande(request, commande_id):
+#     commande = get_object_or_404(Commande, id=commande_id)
+
+#     transaction_id = str(uuid.uuid4())
+
+#     url = "https://api-checkout.cinetpay.com/v2/payment"
+
+#     data = {
+#         "apikey": settings.CINETPAY_API_KEY,
+#         "site_id": settings.CINETPAY_SITE_ID,
+#         "transaction_id": transaction_id,
+#         "amount": int(commande.total),
+#         "currency": "XOF",
+#         "description": f"Commande #{commande.id}",
+#         "return_url": settings.CINETPAY_RETURN_URL,
+#         "notify_url": settings.CINETPAY_NOTIFY_URL,
+#         "customer_name": commande.customer_name,
+#         "customer_surname": "",
+#         "customer_email": commande.customer_email,
+#         "customer_phone_number": commande.customer_phone,
+#         "customer_address": commande.customer_address,
+#         "customer_city": "Abidjan",
+#         "customer_country": "CI"
+#     }
+
+#     response = requests.post(url, json=data)
+#     response_data = response.json()
+
+#     if response_data.get("code") == "201":
+#         payment_url = response_data["data"]["payment_url"]
+#         return redirect(payment_url)
+#     else:
+#         return redirect("commande_confirmation", commande.id)
+
+import requests
+import uuid
+
+
+def payment(request, commande_id):
     commande = get_object_or_404(Commande, id=commande_id)
 
-    transaction_id = str(uuid.uuid4())
+    if request.method == "POST":
+        payment_method = request.POST.get("payment_method")
 
-    url = "https://api-checkout.cinetpay.com/v2/payment"
+        transaction_id = str(uuid.uuid4())
 
-    data = {
-        "apikey": settings.CINETPAY_API_KEY,
-        "site_id": settings.CINETPAY_SITE_ID,
-        "transaction_id": transaction_id,
-        "amount": int(commande.total),
-        "currency": "XOF",
-        "description": f"Commande #{commande.id}",
-        "return_url": settings.CINETPAY_RETURN_URL,
-        "notify_url": settings.CINETPAY_NOTIFY_URL,
-        "customer_name": commande.customer_name,
-        "customer_surname": "",
-        "customer_email": commande.customer_email,
-        "customer_phone_number": commande.customer_phone,
-        "customer_address": commande.customer_address,
-        "customer_city": "Abidjan",
-        "customer_country": "CI"
-    }
+        data = {
+            "apikey": settings.CINETPAY_API_KEY,
+            "site_id": settings.CINETPAY_SITE_ID,
+            "transaction_id": transaction_id,
+            "amount": int(commande.total),
+            "currency": "XOF",
+            "description": f"Commande #{commande.id}",
+            "return_url": request.build_absolute_uri("/payment/success/"),
+            "notify_url": request.build_absolute_uri("/payment/notify/"),
+            "customer_name": commande.customer_name,
+            "customer_phone_number": commande.customer_phone,
+            "customer_email": commande.customer_email,
+            "channels": "ALL"
+        }
 
-    response = requests.post(url, json=data)
-    response_data = response.json()
+        response = requests.post(
+            "https://api-checkout.cinetpay.com/v2/payment",
+            json=data
+        )
 
-    if response_data.get("code") == "201":
-        payment_url = response_data["data"]["payment_url"]
-        return redirect(payment_url)
-    else:
-        return redirect("commande_confirmation", commande.id)
+        res = response.json()
+
+        if res.get("code") == "201":
+            return redirect(res["data"]["payment_url"])
+        else:
+            messages.error(request, "Erreur paiement")
+            return redirect("payment", commande.id)
+
+    return render(request, "payment.html", {"commande": commande})
 
 def payment_notify(request):
     transaction_id = request.POST.get("transaction_id")
@@ -823,3 +1029,48 @@ def payment_notify(request):
 
 def payment_success(request):
     return render(request, "payment_success.html")
+
+
+def payer_commande(request, commande_id):
+    commande = get_object_or_404(Commande, id=commande_id)
+
+    if request.method == "POST":
+        mode = request.POST.get("payment_method")
+
+        commande.payment_method = mode
+        commande.is_paid = (mode != "cash")
+        commande.save()
+
+        messages.success(request, "Paiement effectué avec succès ✅")
+        return redirect("commande_confirmation", commande.id)
+
+    return render(request, "payment.html", {"commande": commande})
+
+
+
+def wave_payment(request, commande_id):
+    commande = get_object_or_404(Commande, id=commande_id)
+
+    if request.method == "POST":
+        proof = request.FILES.get("payment_proof")
+
+        if not proof:
+            messages.error(request, "Ajoute la preuve de paiement")
+            return redirect("wave_payment", commande.id)
+
+        # sauvegarde image
+        fs = FileSystemStorage()
+        filename = fs.save(proof.name, proof)
+
+        commande.payment_proof = filename
+        commande.payment_method = "wave"
+        commande.payment_status = "pending"
+        commande.save()
+
+        messages.success(request, "Preuve envoyée ✅ En attente de validation")
+        return redirect("commande_confirmation", commande.id)
+
+    return render(request, "wave_payment.html", {
+        "commande": commande,
+        "wave_number": "0700000000"
+    })

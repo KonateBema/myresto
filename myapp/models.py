@@ -244,23 +244,103 @@ class Table(models.Model):
     def __str__(self):
         return f"Table {self.number}"
 # ================= COMMANDE =================
+
+# class Commande(models.Model):
+#     STATUS_CHOICES = (
+#         ('En attente', 'En attente'),
+#         ('En cours', 'En cours'),
+#         ('Livrée', 'Livrée'),
+#     )
+#     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+#     customer_name = models.CharField(max_length=255)
+#     customer_email = models.EmailField()
+#     customer_phone = models.CharField(max_length=20)
+#     customer_address = models.TextField()
+#     is_paid = models.BooleanField(default=False)
+#     total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+#     is_delivered = models.BooleanField(default=False)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     table = models.ForeignKey(Table, on_delete=models.SET_NULL, null=True, blank=True)
+
+
+#     class Meta:
+#         verbose_name = "Commande"
+#         verbose_name_plural = "Commandes"
+#         ordering = ["-created_at"]
+
+#     def __str__(self):
+#         return f"Commande #{self.id} - {self.customer_name}"
+
+#     @property
+#     def status(self):
+#         return "Livrée" if self.is_delivered else "En attente"
+
+from django.db import models
+from django.contrib.auth.models import User
+
+
 class Commande(models.Model):
-    STATUS_CHOICES = (
-        ('En attente', 'En attente'),
-        ('En cours', 'En cours'),
-        ('Livrée', 'Livrée'),
+
+    # ================= STATUS COMMANDE =================
+    STATUS_CHOICES = [
+        ('pending', 'En attente'),
+        ('processing', 'En cours'),
+        ('delivered', 'Livrée'),
+    ]
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
     )
+
+    # ================= PAIEMENT =================
+    PAYMENT_METHOD_CHOICES = [
+        ('wave', 'Wave'),
+        ('mobile_money', 'Mobile Money'),
+        ('cash', 'Paiement à la livraison'),
+    ]
+
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'En attente'),
+        ('paid', 'Payé'),
+        ('failed', 'Échoué'),
+    ]
+
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        blank=True,
+        null=True
+    )
+
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='pending'
+    )
+
+    payment_proof = models.ImageField(
+        upload_to="payments/",
+        blank=True,
+        null=True
+    )
+
+    # ================= CLIENT =================
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     customer_name = models.CharField(max_length=255)
     customer_email = models.EmailField()
     customer_phone = models.CharField(max_length=20)
     customer_address = models.TextField()
-    is_paid = models.BooleanField(default=False)
-    total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
-    is_delivered = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    table = models.ForeignKey(Table, on_delete=models.SET_NULL, null=True, blank=True)
 
+    # ================= COMMANDE =================
+    total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    is_paid = models.BooleanField(default=False)  # garde pour compatibilité
+    is_delivered = models.BooleanField(default=False)
+
+    # ================= AUTRES =================
+    created_at = models.DateTimeField(auto_now_add=True)
+    table = models.ForeignKey('Table', on_delete=models.SET_NULL, null=True, blank=True)
 
     class Meta:
         verbose_name = "Commande"
@@ -270,9 +350,17 @@ class Commande(models.Model):
     def __str__(self):
         return f"Commande #{self.id} - {self.customer_name}"
 
-    @property
-    def status(self):
-        return "Livrée" if self.is_delivered else "En attente"
+    # ================= SYNC AUTO =================
+    def save(self, *args, **kwargs):
+        # Synchronisation automatique paiement
+        if self.payment_status == "paid":
+            self.is_paid = True
+
+        # Synchronisation livraison
+        if self.status == "delivered":
+            self.is_delivered = True
+
+        super().save(*args, **kwargs)
 # ================= SLIDES =================
 class HomeSlide(models.Model):
     title = models.CharField(max_length=255)
@@ -302,3 +390,4 @@ class CommandeItem(models.Model):
 
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"
+

@@ -154,43 +154,104 @@ class HomePageAdmin(admin.ModelAdmin):
 # ==============================
 #      COMMANDE ADMIN
 # ==============================
+# @admin.register(Commande)
+# class CommandeAdmin(admin.ModelAdmin):
+
+#     list_display = (
+#         'id',
+#         'customer_name',
+#         'customer_email',
+#         'total',
+#         'is_paid',
+#         'is_delivered',
+#         'created_at',
+#     )
+
+#     list_filter = (
+#         'is_paid',
+#         'is_delivered',
+#         'created_at',
+#     )
+
+#     search_fields = (
+#         'customer_name',
+#         'customer_email',
+#     )
+
+#     def total_commande(self, obj):
+#         if obj.product and obj.product.price:
+#             return obj.quantity * obj.product.price
+#         return 0
+#     total_commande.short_description = 'Total (€)'
+
+#     def status_colored(self, obj):
+#         color = 'green' if obj.is_delivered else 'red'
+#         text = 'Livrée' if obj.is_delivered else 'En attente'
+#         return format_html('<strong style="color:{};">{}</strong>', color, text)
+#     status_colored.short_description = 'Statut'
+
 @admin.register(Commande)
 class CommandeAdmin(admin.ModelAdmin):
 
     list_display = (
         'id',
         'customer_name',
-        'customer_email',
         'total',
-        'is_paid',
-        'is_delivered',
+        'payment_status_colored',
+        'status_colored',
         'created_at',
     )
 
     list_filter = (
-        'is_paid',
-        'is_delivered',
+        'payment_status',
+        'status',
         'created_at',
     )
 
     search_fields = (
         'customer_name',
         'customer_email',
+        'customer_phone',
     )
 
-    def total_commande(self, obj):
-        if obj.product and obj.product.price:
-            return obj.quantity * obj.product.price
-        return 0
-    total_commande.short_description = 'Total (€)'
+    ordering = ('-created_at',)
 
+    # ================= PAIEMENT =================
+    def payment_status_colored(self, obj):
+        colors = {
+            "paid": "green",
+            "pending": "orange",
+            "failed": "red"
+        }
+        color = colors.get(obj.payment_status, "gray")
+        return format_html(
+            '<strong style="color:{};">{}</strong>',
+            color,
+            obj.get_payment_status_display()
+        )
+    payment_status_colored.short_description = "Paiement"
+
+    # ================= STATUT COMMANDE =================
     def status_colored(self, obj):
-        color = 'green' if obj.is_delivered else 'red'
-        text = 'Livrée' if obj.is_delivered else 'En attente'
-        return format_html('<strong style="color:{};">{}</strong>', color, text)
-    status_colored.short_description = 'Statut'
+        colors = {
+            "pending": "orange",
+            "processing": "blue",
+            "delivered": "green"
+        }
+        color = colors.get(obj.status, "gray")
+        return format_html(
+            '<strong style="color:{};">{}</strong>',
+            color,
+            obj.get_status_display()
+        )
+    status_colored.short_description = "Statut"
 
+    # ================= ACTION ADMIN =================
+    actions = ["mark_as_paid"]
 
+    def mark_as_paid(self, request, queryset):
+        queryset.update(payment_status="paid")
+    mark_as_paid.short_description = "✅ Marquer comme payé"
 # ==============================
 #      ADMIN PERSONNALISÉ
 # ==============================

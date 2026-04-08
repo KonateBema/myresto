@@ -40,6 +40,8 @@ CINETPAY_SITE_ID = "TON_SITE_ID"
 CINETPAY_NOTIFY_URL = "http://127.0.0.1:8000/payment/notify/"
 CINETPAY_RETURN_URL = "http://127.0.0.1:8000/payment/success/"
 
+
+
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 # OWNER_EMAIL = os.environ.get('lacinakonate93@gmail.com')  # email du propriétaire
 # DELIVERY_EMAIL = os.environ.get('bemak4178@gmail.com')  # email du livreur
