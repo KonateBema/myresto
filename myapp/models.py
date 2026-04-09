@@ -337,7 +337,7 @@ class Commande(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     is_paid = models.BooleanField(default=False)  # garde pour compatibilité
     is_delivered = models.BooleanField(default=False)
-
+    transaction_id = models.CharField(max_length=100, null=True, blank=True)
     # ================= AUTRES =================
     created_at = models.DateTimeField(auto_now_add=True)
     table = models.ForeignKey('Table', on_delete=models.SET_NULL, null=True, blank=True)

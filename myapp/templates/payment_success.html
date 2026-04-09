@@ -1,0 +1,14 @@
+<h2>Paiement commande #{{ commande.id }}</h2>
+<form method="POST">
+    {% csrf_token %}
+    <label>
+        <input type="radio" name="payment_method" value="cash"> Paiement à la livraison (Cash)
+    </label><br>
+    <label>
+        <input type="radio" name="payment_method" value="mobile_money"> Mobile Money
+    </label><br>
+    <label>
+        <input type="radio" name="payment_method" value="wave"> Wave
+    </label><br><br>
+    <button type="submit">Payer</button>
+</form>

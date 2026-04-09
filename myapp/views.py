@@ -33,6 +33,13 @@ from reportlab.platypus import Table as PDFTable, TableStyle
 import requests
 import uuid
 from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+# from cinetpay import CinetPay
+from cinetpay import Client
+from cinetpay import Config, Credential, Order
+# from cinetpay.cinetpay import CinetPay
+
+
 # =================== HOME ===================
 
 def home(request):
@@ -844,36 +851,36 @@ def checkout_view(request):
         product.save()
 
     # ================= EMAIL PROPRIÉTAIRE =================
-    # send_mail(
-    #     subject=f"Nouvelle commande #{commande.id}",
-    #     message=(
-    #         f"Client: {customer_name}\n"
-    #         f"Téléphone: {customer_phone}\n"
-    #         f"Adresse: {customer_address}\n"
-    #         f"Commune: {commune}\n\n"
-    #         f"Produits:\n{details_produits}\n"
-    #         f"Livraison: {delivery_fee} FCFA\n"
-    #         f"Total: {total_general} FCFA"
-    #     ),
-    #     from_email=settings.DEFAULT_FROM_EMAIL,
-    #     recipient_list=[settings.OWNER_EMAIL],
-    # )
+    send_mail(
+        subject=f"Nouvelle commande #{commande.id}",
+        message=(
+            f"Client: {customer_name}\n"
+            f"Téléphone: {customer_phone}\n"
+            f"Adresse: {customer_address}\n"
+            f"Commune: {commune}\n\n"
+            f"Produits:\n{details_produits}\n"
+            f"Livraison: {delivery_fee} FCFA\n"
+            f"Total: {total_general} FCFA"
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.OWNER_EMAIL],
+    )
 
-    # # ================= EMAIL LIVREUR =================
-    # send_mail(
-    #     subject=f"Commande à livrer #{commande.id}",
-    #     message=(
-    #         f"Commande #{commande.id}\n"
-    #         f"Client: {customer_name}\n"
-    #         f"Téléphone: {customer_phone}\n"
-    #         f"Commune: {commune}\n\n"
-    #         f"Adresse: {customer_address}\n"
-    #         f"Produits:\n{details_produits}\n"
-    #         f"Livraison: {delivery_fee} FCFA"
-    #     ),
-    #     from_email=settings.DEFAULT_FROM_EMAIL,
-    #     recipient_list=[settings.DELIVERY_EMAIL],
-    # )
+    # ================= EMAIL LIVREUR =================
+    send_mail(
+        subject=f"Commande à livrer #{commande.id}",
+        message=(
+            f"Commande #{commande.id}\n"
+            f"Client: {customer_name}\n"
+            f"Téléphone: {customer_phone}\n"
+            f"Commune: {commune}\n\n"
+            f"Adresse: {customer_address}\n"
+            f"Produits:\n{details_produits}\n"
+            f"Livraison: {delivery_fee} FCFA"
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.DELIVERY_EMAIL],
+    )
 
     # ================= WEBSOCKET =================
     try:
@@ -982,95 +989,414 @@ import requests
 import uuid
 
 
-def payment(request, commande_id):
+# def payment(request, commande_id):
+#     commande = get_object_or_404(Commande, id=commande_id)
+
+#     if request.method == "POST":
+#         payment_method = request.POST.get("payment_method")
+
+#         transaction_id = str(uuid.uuid4())
+
+#         data = {
+#             "apikey": settings.CINETPAY_API_KEY,
+#             "site_id": settings.CINETPAY_SITE_ID,
+#             "transaction_id": transaction_id,
+#             "amount": int(commande.total),
+#             "currency": "XOF",
+#             "description": f"Commande #{commande.id}",
+#             "return_url": request.build_absolute_uri("/payment/success/"),
+#             "notify_url": request.build_absolute_uri("/payment/notify/"),
+#             "customer_name": commande.customer_name,
+#             "customer_phone_number": commande.customer_phone,
+#             "customer_email": commande.customer_email,
+#             "channels": "ALL"
+#         }
+
+#         response = requests.post(
+#             "https://api-checkout.cinetpay.com/v2/payment",
+#             json=data
+#         )
+
+#         res = response.json()
+
+#         if res.get("code") == "201":
+#             return redirect(res["data"]["payment_url"])
+#         else:
+#             messages.error(request, "Erreur paiement")
+#             return redirect("payment", commande.id)
+
+#     return render(request, "payment.html", {"commande": commande})
+
+
+
+from django.views.decorators.csrf import csrf_exempt
+from .models import Commande
+
+# =========================
+# FORMULAIRE DE PAIEMENT
+# =========================
+def payment_view(request, commande_id):
     commande = get_object_or_404(Commande, id=commande_id)
 
     if request.method == "POST":
         payment_method = request.POST.get("payment_method")
+        if not payment_method:
+            return redirect("payment", commande_id=commande.id)
 
-        transaction_id = str(uuid.uuid4())
+        if payment_method == "cash":
+            # Paiement à la livraison
+            commande.is_paid = False
+            commande.save()
+            return render(request, "payment_success.html", {"commande": commande, "method": "Cash"})
 
-        data = {
+        elif payment_method in ["mobile_money", "wave"]:
+            # Sandbox CinetPay
+            payload = {
+                "site_id": "100123",            # Sandbox site_id
+                "api_key": "1234567890abcdef",  # Sandbox api_key
+                "transaction_id": f"CMD-{commande.id}",
+                "amount": commande.total,
+                "currency": "CFA",
+                "customer_email": commande.customer_email,
+                "customer_phone": commande.customer_phone,
+                "description": f"Paiement commande #{commande.id}",
+                "notify_url": "http://127.0.0.1:8000/payment/notify/",
+                "return_url": f"http://127.0.0.1:8000/payment/success/{commande.id}/",
+            }
+
+            url = "https://sandbox.cinetpay.com/v1/?method=checkPayment"
+            response = requests.post(url, json=payload)
+            data = response.json()
+            print(data)  # Debug
+
+            if data.get("code") == "201":
+                return redirect(data["data"]["payment_url"])
+            else:
+                return render(request, "payment_error.html", {"error": data})
+
+    # GET → Afficher formulaire
+    return render(request, "payment.html", {"commande": commande})
+
+# =========================
+# NOTIFICATION CINETPAY
+# =========================
+@csrf_exempt
+def payment_notify(request):
+    if request.method == "POST":
+        transaction_id = request.POST.get("transaction_id")
+        if not transaction_id:
+            return HttpResponse("Transaction ID manquant", status=400)
+
+        payload = {
             "apikey": settings.CINETPAY_API_KEY,
             "site_id": settings.CINETPAY_SITE_ID,
-            "transaction_id": transaction_id,
-            "amount": int(commande.total),
-            "currency": "XOF",
-            "description": f"Commande #{commande.id}",
-            "return_url": request.build_absolute_uri("/payment/success/"),
-            "notify_url": request.build_absolute_uri("/payment/notify/"),
-            "customer_name": commande.customer_name,
-            "customer_phone_number": commande.customer_phone,
-            "customer_email": commande.customer_email,
-            "channels": "ALL"
+            "transaction_id": transaction_id
         }
 
-        response = requests.post(
-            "https://api-checkout.cinetpay.com/v2/payment",
-            json=data
+        try:
+            response = requests.post(
+                "https://api-checkout.cinetpay.com/v2/payment",
+                json=payload,
+                headers={"Content-Type": "application/json"}
+            )
+            res = response.json()
+        except Exception:
+            return HttpResponse("Erreur CinetPay", status=500)
+
+        if res.get("data", {}).get("status") == "ACCEPTED":
+            commande_id = res["data"]["metadata"]
+            commande = Commande.objects.filter(id=commande_id).first()
+            if commande:
+                commande.is_paid = True
+                commande.save()
+            return HttpResponse("OK")
+
+    return HttpResponse("Méthode non autorisée", status=405)
+
+
+# =========================
+# SUCCÈS PAIEMENT
+# =========================
+def payment_success_view(request, commande_id):
+    commande = get_object_or_404(Commande, id=commande_id)
+    method_param = request.GET.get('method', 'cash')
+    method = "Cash" if method_param == "cash" else "Mobile Money / Wave"
+    return render(request, "payment_success.html", {"commande": commande, "method": method})
+
+from django.shortcuts import get_object_or_404, redirect
+from .models import Commande
+
+def process_payment(request, commande_id, method):
+    # Récupération de la commande
+    commande = get_object_or_404(Commande, id=commande_id)
+
+    # Ici tu implémentes la logique de paiement selon la méthode choisie
+    # Par exemple, si "mobile_money" ou "card"
+    if method == "mobile_money":
+        # TODO: appeler l'API de paiement Mobile Money
+        commande.is_paid = True  # ou False selon l'API
+        commande.save()
+        # Redirection vers confirmation
+        return redirect('commande_confirmation', commande.id)
+
+    elif method == "card":
+        # TODO: intégrer Stripe ou autre
+        commande.is_paid = True
+        commande.save()
+        return redirect('commande_confirmation', commande.id)
+
+    else:
+        # méthode inconnue
+        messages.error(request, "Méthode de paiement invalide.")
+        return redirect('checkout')
+
+def process_mobile_money1(request, commande_id):
+    # 🔹 Récupération de la commande
+    commande = get_object_or_404(Commande, id=commande_id)
+    
+    if commande.is_paid:
+        return HttpResponse(f"La commande #{commande.id} a déjà été payée.")
+    
+    # 🔹 Ici, tu peux appeler l'API Mobile Money réelle
+    # Exemple de simulation de paiement :
+    paiement_reussi = True  # Change en fonction de la réponse de l'API
+    
+    if paiement_reussi:
+        commande.is_paid = True
+        commande.save()
+        return HttpResponse(f"Paiement Mobile Money pour la commande #{commande.id} effectué avec succès !")
+    else:
+        return HttpResponse(f"Le paiement Mobile Money pour la commande #{commande.id} a échoué. Réessaye.")
+
+# ⚡ Clés CinetPay (test ou prod)
+# CINETPAY_API_KEY = "TON_API_KEY"
+# CINETPAY_SITE_ID = "TON_SITE_ID"
+# CINETPAY_MODE = "TEST"  # TEST ou PROD
+
+
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+import json
+
+from myapp.models import Commande
+
+# 🔹 Import CinetPay
+from cinetpay import Client, Config, Credential
+
+
+# =========================
+# Paiement Mobile Money
+# =========================
+@csrf_exempt
+def process_mobile_money(request, commande_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        operator = data.get("operator")
+        if not operator:
+            return JsonResponse({"error": "Aucun opérateur sélectionné"}, status=400)
+
+        # Récupération de la commande
+        commande = get_object_or_404(Commande, id=commande_id)
+
+        # 🔹 Config CinetPay
+        CINETPAY_SITE_ID = "TON_SITE_ID"
+        CINETPAY_API_KEY = "TON_API_KEY"
+        CINETPAY_MODE = "TEST"  # "PROD" en production
+
+        configs = Config(
+            credentials=Credential(site_id=CINETPAY_SITE_ID, apikey=CINETPAY_API_KEY),
+            currency="XOF",
+            channels=["MOBILE_MONEY"],
+            language="fr",
+            lock_phone_number=False,
+            raise_on_error=True
         )
 
-        res = response.json()
+        cp = Client(configs=configs)
 
-        if res.get("code") == "201":
-            return redirect(res["data"]["payment_url"])
+        # 🔹 Création de la transaction Mobile Money
+        order = cp.Order()  # objet Order pour créer le paiement
+
+        response = order.create(
+            amount=int(commande.total),
+            trans_id=f"COM{commande.id}",
+            description=f"Paiement commande #{commande.id}",
+            customer_name=commande.customer_name,
+            customer_email=commande.customer_email,
+            customer_phone=commande.customer_phone,
+            channel=operator.upper(),  # MTN / ORANGE / MOOV
+            return_url=f"http://127.0.0.1:8000/payment/success/{commande.id}/"
+        )
+
+        if "payment_url" in response:
+            return JsonResponse({"payment_url": response["payment_url"]})
         else:
-            messages.error(request, "Erreur paiement")
-            return redirect("payment", commande.id)
+            return JsonResponse({"error": response}, status=400)
 
-    return render(request, "payment.html", {"commande": commande})
-
-def payment_notify(request):
-    transaction_id = request.POST.get("transaction_id")
-
-    # ici tu peux vérifier le paiement avec l’API CinetPay
-
-    return JsonResponse({"status": "ok"})
-
-def payment_success(request):
-    return render(request, "payment_success.html")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Données JSON invalides"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
-def payer_commande(request, commande_id):
-    commande = get_object_or_404(Commande, id=commande_id)
+# =========================
+# Paiement Wave
+# =========================
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
+import json
 
-    if request.method == "POST":
-        mode = request.POST.get("payment_method")
+from myapp.models import Commande
+from cinetpay import Client, Config, Credential
 
-        commande.payment_method = mode
-        commande.is_paid = (mode != "cash")
-        commande.save()
+# =========================
+# Paiement Mobile Money
+# =========================
+@csrf_exempt
+def process_mobile_money(request, commande_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
-        messages.success(request, "Paiement effectué avec succès ✅")
-        return redirect("commande_confirmation", commande.id)
+    try:
+        data = json.loads(request.body)
+        operator = data.get("operator")
+        if not operator:
+            return JsonResponse({"error": "Aucun opérateur sélectionné"}, status=400)
 
-    return render(request, "payment.html", {"commande": commande})
+        commande = get_object_or_404(Commande, id=commande_id)
+
+        CINETPAY_SITE_ID = "TON_SITE_ID"
+        CINETPAY_API_KEY = "TON_API_KEY"
+
+        configs = Config(
+            credentials=Credential(site_id=CINETPAY_SITE_ID, apikey=CINETPAY_API_KEY),
+            currency="XOF",
+            channels=["MOBILE_MONEY"],
+            language="fr",
+            lock_phone_number=False,
+            raise_on_error=True
+        )
+
+        cp = Client(configs=configs)
+        order = cp.Order()
+
+        response = order.create(
+            amount=int(commande.total),
+            trans_id=f"COM{commande.id}",
+            description=f"Paiement commande #{commande.id}",
+            customer_name=commande.customer_name,
+            customer_email=commande.customer_email,
+            customer_phone=commande.customer_phone,
+            channel=operator.upper(),  # MTN / ORANGE / MOOV
+            return_url=f"http://127.0.0.1:8000/payment/success/{commande.id}/"
+        )
+
+        if "payment_url" in response:
+            return JsonResponse({"payment_url": response["payment_url"]})
+        else:
+            return JsonResponse({"error": response}, status=400)
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
 
 
+# =========================
+# Paiement Wave
+# =========================
+@csrf_exempt
+def process_wave_payment(request, commande_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
-def wave_payment(request, commande_id):
-    commande = get_object_or_404(Commande, id=commande_id)
+    try:
+        commande = get_object_or_404(Commande, id=commande_id)
 
-    if request.method == "POST":
-        proof = request.FILES.get("payment_proof")
+        CINETPAY_SITE_ID = "TON_SITE_ID"
+        CINETPAY_API_KEY = "TON_API_KEY"
 
-        if not proof:
-            messages.error(request, "Ajoute la preuve de paiement")
-            return redirect("wave_payment", commande.id)
+        configs = Config(
+            credentials=Credential(site_id=CINETPAY_SITE_ID, apikey=CINETPAY_API_KEY),
+            currency="XOF",
+            channels=["WALLET"],  # Wave est considéré comme Wallet
+            language="fr",
+            lock_phone_number=False,
+            raise_on_error=True
+        )
 
-        # sauvegarde image
-        fs = FileSystemStorage()
-        filename = fs.save(proof.name, proof)
+        cp = Client(configs=configs)
+        order = cp.Order()
 
-        commande.payment_proof = filename
-        commande.payment_method = "wave"
-        commande.payment_status = "pending"
-        commande.save()
+        response = order.create(
+            amount=int(commande.total),
+            trans_id=f"WAVE{commande.id}",
+            description=f"Paiement Wave commande #{commande.id}",
+            customer_name=commande.customer_name,
+            customer_email=commande.customer_email,
+            customer_phone=commande.customer_phone,
+            channel="WALLET",
+            return_url=f"http://127.0.0.1:8000/payment/success/{commande.id}/"
+        )
 
-        messages.success(request, "Preuve envoyée ✅ En attente de validation")
-        return redirect("commande_confirmation", commande.id)
+        if "payment_url" in response:
+            return JsonResponse({"payment_url": response["payment_url"]})
+        else:
+            return JsonResponse({"error": response}, status=400)
 
-    return render(request, "wave_payment.html", {
-        "commande": commande,
-        "wave_number": "0700000000"
-    })
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        operator = data.get("operator")
+        if not operator:
+            return JsonResponse({"error": "Opérateur non fourni"}, status=400)
+
+        # 🔹 Récupération de la commande
+        commande = get_object_or_404(Commande, id=commande_id)
+
+        # 🔹 Configuration CinetPay avec credentials
+        configs = {
+            "site_id": "TON_SITE_ID",
+            "apikey": "TON_API_KEY",
+            "sandbox": True,
+            "currency": "XOF",  # ← obligatoire
+           "language": "fr",              # Langue FR ou EN
+            "credentials": {
+            "secret_key": "TON_SECRET_KEY"  # Obligatoire
+            },
+            "channels": "MOBILE_MONEY",
+            "lock_phone_number": commande.customer_phone , # Numéro du client
+             "raise_on_error": False         # False = retourne JSON d'erreur, True = lève exception
+        }
+        cp = Client(configs=configs)
+
+        # 🔹 Création du paiement
+        response = cp.Order.create(
+            amount=int(commande.total),
+            trans_id=f"COM{commande.id}",
+            customer_name=commande.customer_name,
+            customer_email=commande.customer_email,
+            customer_phone=commande.customer_phone,
+            payment_method="MOBILE_MONEY",
+            channel=operator.upper(),   # MTN / ORANGE / MOOV
+            description=f"Paiement commande #{commande.id}",
+            return_url=f"http://127.0.0.1:8000/payment/success/{commande.id}/"
+        )
+
+        # 🔹 Vérification de la réponse
+        if response.get("code") in ["00", "201"] and response.get("data", {}).get("payment_url"):
+            return JsonResponse({"payment_url": response["data"]["payment_url"]})
+        else:
+            return JsonResponse({"error": response}, status=400)
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Données JSON invalides"}, status=400)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)

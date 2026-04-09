@@ -35,6 +35,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from myapp.views import home , commande, commande_confirmation, generate_pdf
 from myapp.admin import admin_site  # <- IMPORTANT, on importe l'admin personnalisé
+from myapp.views import process_mobile_money, process_wave_payment
 
 urlpatterns = [
     # Admin personnalisé
@@ -50,10 +51,17 @@ urlpatterns = [
     path('panier/', views.panier_view, name='panier'),  # panier
     # path('checkout/', views.checkout, name='checkout'),
     path("checkout/", views.checkout_view, name="checkout"),
-    path('payer/<int:commande_id>/', views.payer_commande, name='payer_commande'),
     # path('payment/notify/', views.payment_notify, name='payment_notify'),
-    path('payment/<int:commande_id>/', views.payment, name='payment'),
-    path('payment/success/', views.payment_success, name='payment_success'),
+    path('payment/<int:commande_id>/', views.payment_view, name='payment'),
+    path("payment/notify/", views.payment_notify, name="payment_notify"),
+    path("payment/success/<int:commande_id>/", views.payment_success_view, name="payment_success"),
+    path('payment/process/<int:commande_id>/<str:method>/', views.process_payment, name='process_payment'),
+    # path('payment/process/<int:commande_id>/mobile_money/', views.process_mobile_money, name='process_mobile_money'),
+    path('payment/process_mobile_money/<int:commande_id>/', views.process_mobile_money, name='process_mobile_money'),
+    # path("payment/success/", payment_success, name="payment_success"),
+    path('payer/<int:commande_id>/', views.payment_view, name='payer_commande'),
+    path('payment/process_wave_payment/<int:commande_id>/', process_wave_payment, name='process_wave_payment'),
+    #  path('payer/<int:commande_id>/', views.payment_view, name='payer_commande'),  # Utilise payment_view
 
 ]
 # permette de charger le fichier image dans django
