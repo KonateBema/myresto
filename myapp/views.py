@@ -844,36 +844,36 @@ def checkout_view(request):
         product.save()
 
     # ================= EMAIL PROPRIÉTAIRE =================
-    send_mail(
-        subject=f"Nouvelle commande #{commande.id}",
-        message=(
-            f"Client: {customer_name}\n"
-            f"Téléphone: {customer_phone}\n"
-            f"Adresse: {customer_address}\n"
-            f"Commune: {commune}\n\n"
-            f"Produits:\n{details_produits}\n"
-            f"Livraison: {delivery_fee} FCFA\n"
-            f"Total: {total_general} FCFA"
-        ),
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[settings.OWNER_EMAIL],
-    )
+    # send_mail(
+    #     subject=f"Nouvelle commande #{commande.id}",
+    #     message=(
+    #         f"Client: {customer_name}\n"
+    #         f"Téléphone: {customer_phone}\n"
+    #         f"Adresse: {customer_address}\n"
+    #         f"Commune: {commune}\n\n"
+    #         f"Produits:\n{details_produits}\n"
+    #         f"Livraison: {delivery_fee} FCFA\n"
+    #         f"Total: {total_general} FCFA"
+    #     ),
+    #     from_email=settings.DEFAULT_FROM_EMAIL,
+    #     recipient_list=[settings.OWNER_EMAIL],
+    # )
 
-    # ================= EMAIL LIVREUR =================
-    send_mail(
-        subject=f"Commande à livrer #{commande.id}",
-        message=(
-            f"Commande #{commande.id}\n"
-            f"Client: {customer_name}\n"
-            f"Téléphone: {customer_phone}\n"
-            f"Commune: {commune}\n\n"
-            f"Adresse: {customer_address}\n"
-            f"Produits:\n{details_produits}\n"
-            f"Livraison: {delivery_fee} FCFA"
-        ),
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[settings.DELIVERY_EMAIL],
-    )
+    # # ================= EMAIL LIVREUR =================
+    # send_mail(
+    #     subject=f"Commande à livrer #{commande.id}",
+    #     message=(
+    #         f"Commande #{commande.id}\n"
+    #         f"Client: {customer_name}\n"
+    #         f"Téléphone: {customer_phone}\n"
+    #         f"Commune: {commune}\n\n"
+    #         f"Adresse: {customer_address}\n"
+    #         f"Produits:\n{details_produits}\n"
+    #         f"Livraison: {delivery_fee} FCFA"
+    #     ),
+    #     from_email=settings.DEFAULT_FROM_EMAIL,
+    #     recipient_list=[settings.DELIVERY_EMAIL],
+    # )
 
     # ================= WEBSOCKET =================
     try:
