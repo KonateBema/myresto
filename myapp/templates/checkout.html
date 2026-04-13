@@ -65,7 +65,16 @@ body {
     border-radius: 12px;
     padding: 10px;
 }
+.btn-light {
+    border-radius: 10px;
+    font-weight: 500;
+    transition: 0.3s;
+}
 
+.btn-light:hover {
+    background: #e2e6ea;
+    transform: translateX(-3px);
+}
 /* BADGE */
 .badge-delivery {
     background: white;
@@ -88,7 +97,19 @@ body {
 
 <div class="container py-5">
 
-    <h2 class="header mb-4">🧾 Finaliser votre commande</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <a href="javascript:history.back()" class="btn btn-light shadow-sm px-3">
+            ← Retour
+        </a>
+    
+        <h2 class="header m-0">🧾 Finaliser votre commande</h2>
+    
+    </div>
+
+
+
+    <!-- <h2 class="header mb-4">🧾 Finaliser votre commande</h2> -->
 
     <div class="row g-4">
 

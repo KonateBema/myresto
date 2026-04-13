@@ -390,4 +390,10 @@ class CommandeItem(models.Model):
 
     def __str__(self):
         return f"{self.product.name} x {self.quantity}"
+        
+class Payment(models.Model):
+    commande = models.ForeignKey(Commande, on_delete=models.CASCADE)
+    trans_id = models.CharField(max_length=100, unique=True)
+    status = models.CharField(max_length=20, default="PENDING")
+    created_at = models.DateTimeField(auto_now_add=True)
 

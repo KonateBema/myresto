@@ -69,13 +69,5 @@ if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 # *************************************************
-# from django.shortcuts import render
-# from .models import Product , HomePage
-
-# creer la views
-# def home(request):
-#     products = Product.objects.all()
-#     home_data = HomePage.objects.first() # recuperer les donners de homePage
-#     return render(request, 'home.html',{'home_data': home_data ,'products':products})
 
 
