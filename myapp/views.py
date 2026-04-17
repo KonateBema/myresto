@@ -22,7 +22,9 @@ from .models import Product, HomePage, HomeSlide, Commande ,CommandeItem
 from .forms import CommandeForm
 # from reportlab.platypus import Table, TableStyle  # ✅ IMPORT manquant
 from .models import Table
+from .models import Category
 # myapp/views.py
+import time
 from django.core.mail import send_mail
 # Pour WebSocket
 from asgiref.sync import async_to_sync
@@ -39,10 +41,10 @@ from cinetpay import Client
 from cinetpay import Config, Credential, Order
 # from cinetpay.cinetpay import CinetPay
 
-
 # =================== HOME ===================
 
 def home(request):
+    categories = Category.objects.all()
     # 🔹 Récupération du numéro de table depuis l'URL
     table_number = request.GET.get("table")
     if table_number:
@@ -91,6 +93,7 @@ def home(request):
         "qr_code": qr_code_base64,
         "table": request.session.get("table"),
         "commande": commande,
+        "categories": categories
     }
 
     # 🔹 Rendu du template
@@ -338,251 +341,6 @@ def panier_view(request):
     }
     return render(request, 'panier.html', context)
 
-# views.py  ne depoiement 
-
-# def checkout_view(request):
-#     # ===================== GET =====================
-#     if request.method == "GET":
-#         return render(request, "checkout.html")
-
-#     # ===================== POST =====================
-#     if request.method == "POST":
-
-#         # Récupérer le panier envoyé depuis le front (localStorage)
-#         cart_items_raw = request.POST.get("cart_items")
-#         try:
-#             cart_items = json.loads(cart_items_raw) if cart_items_raw else []
-#         except json.JSONDecodeError:
-#             messages.error(request, "Erreur : panier invalide.")
-#             return redirect("panier")
-
-#         if not cart_items:
-#             messages.error(request, "Votre panier est vide.")
-#             return redirect("panier")
-
-#         # Infos client
-#         customer_name = request.POST.get("customer_name")
-#         customer_email = request.POST.get("customer_email")
-#         customer_phone = request.POST.get("customer_phone")
-#         customer_address = request.POST.get("customer_address")
-
-#         if not customer_name or not customer_phone or not customer_address:
-#             messages.error(request, "Informations client manquantes.")
-#             return redirect("checkout")
-
-#         total_general = 0
-
-#         # ===================== Calcul total et mise à jour stock =====================
-#         for item in cart_items:
-#             product = get_object_or_404(Product, id=item["id"])
-#             quantity = int(item["qty"])
-
-#             if product.quantity < quantity:
-#                 messages.error(request, f"Stock insuffisant pour {product.name}")
-#                 return redirect("panier")
-
-#             total_item = float(product.price) * quantity
-#             total_general += total_item
-
-#             # Mise à jour stock
-#             product.quantity -= quantity
-#             product.save()
-
-#         # ===================== Création commande =====================
-#         commande = Commande.objects.create(
-#             customer_name=customer_name,
-#             customer_email=customer_email,
-#             customer_phone=customer_phone,
-#             customer_address=customer_address,
-#             total=total_general
-#         )
-
-#         # Ajouter les items à la commande
-#         for item in cart_items:
-#             product = get_object_or_404(Product, id=item["id"])
-#             CommandeItem.objects.create(
-#                 commande=commande,
-#                 product=product,
-#                 quantity=int(item["qty"]),
-#                 price=product.price
-#             )
-
-#         # ===================== Envoi email =====================
-#         # Au propriétaire
-#         send_mail(
-#             subject=f"Nouvelle commande #{commande.id}",
-#             message=f"Une nouvelle commande a été passée par {customer_name}.\nTotal: {total_general} FCFA",
-#             from_email=settings.DEFAULT_FROM_EMAIL,
-#             recipient_list=[settings.OWNER_EMAIL],
-#         )
-
-#         # Au livreur
-#         send_mail(
-#             subject=f"Nouvelle commande à livrer #{commande.id}",
-#             message=f"Commande #{commande.id} à livrer.\nAdresse client: {customer_address}\nTéléphone: {customer_phone}",
-#             from_email=settings.DEFAULT_FROM_EMAIL,
-#             recipient_list=[settings.DELIVERY_EMAIL],
-#         )
-
-#         # ===================== Notification WebSocket =====================
-#         try:
-#             channel_layer = get_channel_layer()
-#             async_to_sync(channel_layer.group_send)(
-#                 "notifications",
-#                 {
-#                     "type": "send_notification",
-#                     "message": f"Nouvelle commande #{commande.id} passée par {customer_name}"
-#                 }
-#             )
-#         except Exception as e:
-#             print("Erreur notification WebSocket:", e)
-
-#         # ===================== Retour et vidage panier =====================
-#         # Ici on n’utilise plus la session Django, car le panier vient de localStorage
-#         messages.success(request, "Commande validée avec succès ✅")
-#         return redirect("commande_confirmation", commande.id)
-
-
-
-# def checkout_view(request):
-#     # 🔹 Récupérer le numéro de table depuis la session
-#     table_number = request.session.get("table")
-#     table = None
-#     if table_number:
-#         try:
-#             table = Table.objects.get(number=table_number)
-#         except Table.DoesNotExist:
-#             table = None  # Ignore si la table n'existe pas
-
-#     # ===================== GET =====================
-#     if request.method == "GET":
-#         return render(request, "checkout.html", {"table": table})
-
-#     # ===================== POST =====================
-#     if request.method == "POST":
-
-#         # Récupérer le panier envoyé depuis le front (localStorage)
-#         cart_items_raw = request.POST.get("cart_items")
-
-#         try:
-#             cart_items = json.loads(cart_items_raw) if cart_items_raw else []
-#         except json.JSONDecodeError:
-#             messages.error(request, "Erreur : panier invalide.")
-#             return redirect("panier")
-
-#         if not cart_items:
-#             messages.error(request, "Votre panier est vide.")
-#             return redirect("panier")
-
-#         # ===================== Infos client =====================
-#         customer_name = request.POST.get("customer_name")
-#         customer_email = request.POST.get("customer_email")
-#         customer_phone = request.POST.get("customer_phone")
-#         customer_address = request.POST.get("customer_address")
-
-#         if not customer_name or not customer_phone or not customer_address:
-#             messages.error(request, "Informations client manquantes.")
-#             return redirect("checkout")
-
-#         total_general = 0
-#         details_produits = ""
-#         produits_valides = []
-
-#         # ===================== Vérification stock =====================
-#         for item in cart_items:
-#             product = get_object_or_404(Product, id=item["id"])
-#             quantity = int(item["qty"])
-
-#             if product.quantity < quantity:
-#                 messages.error(request, f"Stock insuffisant pour {product.name}")
-#                 return redirect("panier")
-
-#             total_general += product.price * quantity
-
-#             produits_valides.append({
-#                 "product": product,
-#                 "quantity": quantity
-#             })
-
-#             details_produits += f"{product.name} - Quantité: {quantity}\n"
-
-#         # ===================== Création commande =====================
-#         commande = Commande.objects.create(
-#             table=table,
-#             customer_name=customer_name,
-#             customer_email=customer_email,
-#             customer_phone=customer_phone,
-#             customer_address=customer_address,
-#             total=total_general
-#         )
-
-#         # ===================== Enregistrer produits + réduire stock =====================
-#         for item in produits_valides:
-#             product = item["product"]
-#             quantity = item["quantity"]
-
-#             CommandeItem.objects.create(
-#                 commande=commande,
-#                 product=product,
-#                 quantity=quantity,
-#                 price=product.price
-#             )
-
-#             # product.quantity -= quantity
-#             # product.save()
-#             if product.quantity >= quantity:
-#                product.quantity -= quantity
-#                product.save()
-#             else:
-#                messages.error(request, f"Stock insuffisant pour {product.name}")
-#                return redirect("panier")
-#         # ===================== Email propriétaire =====================
-#         send_mail(
-#             subject=f"Nouvelle commande #{commande.id}",
-#             message=(
-#                 f"Une nouvelle commande a été passée par {customer_name}\n"
-#                 f"Téléphone: {customer_phone}\n"
-#                 f"Adresse: {customer_address}\n\n"
-#                 f"Produits commandés:\n{details_produits}\n"
-#                 f"Total: {total_general} FCFA"
-#             ),
-#             from_email=settings.DEFAULT_FROM_EMAIL,
-#             recipient_list=[settings.OWNER_EMAIL],
-#         )
-
-#         # ===================== Email livreur =====================
-#         send_mail(
-#             subject=f"Nouvelle commande à livrer #{commande.id}",
-#             message=(
-#                 f"Commande #{commande.id}\n"
-#                 f"Client: {customer_name}\n"
-#                 f"Téléphone: {customer_phone}\n"
-#                 f"Adresse: {customer_address}\n\n"
-#                 f"Produits:\n{details_produits}"
-#             ),
-#             from_email=settings.DEFAULT_FROM_EMAIL,
-#             recipient_list=[settings.DELIVERY_EMAIL],
-#         )
-
-#         # ===================== Notification WebSocket =====================
-#         try:
-#             channel_layer = get_channel_layer()
-#             async_to_sync(channel_layer.group_send)(
-#                 "notifications",
-#                 {
-#                     "type": "send_notification",
-#                     "message": f"Nouvelle commande #{commande.id} passée par {customer_name}"
-#                 }
-#             )
-#         except Exception as e:
-#             print("Erreur notification WebSocket:", e)
-
-#         # ===================== Retour =====================
-#         messages.success(request, "Commande validée avec succès ✅")
-#         return redirect("commande_confirmation", commande.id)
-
-# def checkout_view(request):
-
     # ================= TABLE =================
     table_number = request.session.get("table")
     table = None
@@ -750,7 +508,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 
-def checkout_view(request):
+def checkout_view3333(request):
 
     # ================= TABLE =================
     table_number = request.session.get("table")
@@ -904,6 +662,248 @@ def checkout_view(request):
     # 🔥 REDIRECTION VERS PAIEMENT
     return redirect("payment", commande.id)
 
+
+from django.db import transaction
+
+def checkout_view(request):
+
+    # ================= TABLE =================
+    table_number = request.session.get("table")
+    table = None
+
+    if table_number:
+        table = Table.objects.filter(number=table_number).first()
+
+    # ================= GET =================
+    if request.method == "GET":
+        return render(request, "checkout.html", {"table": table})
+
+    # ================= POST =================
+    cart_items_raw = request.POST.get("cart_items")
+
+    try:
+        cart_items = json.loads(cart_items_raw) if cart_items_raw else []
+    except json.JSONDecodeError:
+        messages.error(request, "Panier invalide.")
+        return redirect("panier")
+
+    if not cart_items:
+        messages.error(request, "Votre panier est vide.")
+        return redirect("panier")
+
+    # ================= CLIENT =================
+    customer_name = request.POST.get("customer_name")
+    customer_email = request.POST.get("customer_email")
+    customer_phone = request.POST.get("customer_phone")
+    customer_address = request.POST.get("customer_address")
+    commune = request.POST.get("commune")
+
+    if not all([customer_name, customer_phone, customer_address, commune]):
+        messages.error(request, "Informations manquantes.")
+        return redirect("checkout")
+
+    # ================= LIVRAISON =================
+    delivery_fees = {
+        "cocody": 1500,
+        "yopougon": 2000,
+        "abobo": 2500,
+        "plateau": 1000,
+        "marcory": 1200
+    }
+
+    delivery_fee = delivery_fees.get(commune, 0)
+
+    total_general = 0
+    details_produits = ""
+    produits_valides = []
+
+    # ================= STOCK (PRÉ-VÉRIFICATION) =================
+    for item in cart_items:
+        product = get_object_or_404(Product, id=item["id"])
+        quantity = int(item["qty"])
+
+        if quantity <= 0:
+            messages.error(request, "Quantité invalide.")
+            return redirect("panier")
+
+        if product.quantity < quantity:
+            messages.error(request, f"Stock insuffisant pour {product.name}")
+            return redirect("panier")
+
+        subtotal = product.price * quantity
+        total_general += subtotal
+
+        produits_valides.append({
+            "product_id": product.id,
+            "quantity": quantity
+        })
+
+        details_produits += f"{product.name} - Quantité: {quantity} - {subtotal} FCFA\n"
+
+    total_general += delivery_fee
+
+    # ================= TRANSACTION 🔥 =================
+    try:
+        with transaction.atomic():
+
+            # Création commande
+            commande = Commande.objects.create(
+                table=table,
+                customer_name=customer_name,
+                customer_email=customer_email,
+                customer_phone=customer_phone,
+                customer_address=customer_address,
+                total=total_general,
+                is_paid=False
+            )
+
+            # ================= ITEMS + STOCK =================
+            for item in produits_valides:
+                product = Product.objects.select_for_update().get(id=item["product_id"])
+                quantity = item["quantity"]
+
+                # 🔥 Vérification CRITIQUE (anti bug concurrent)
+                if product.quantity < quantity:
+                    raise Exception(f"Stock insuffisant pour {product.name}")
+
+                CommandeItem.objects.create(
+                    commande=commande,
+                    product=product,
+                    quantity=quantity,
+                    price=product.price
+                )
+
+                product.quantity -= quantity
+                product.save()
+
+    except Exception as e:
+        messages.error(request, str(e))
+        return redirect("panier")
+
+    # ================= EMAIL =================
+    send_mail(
+        subject=f"Nouvelle commande #{commande.id}",
+        message=(
+            f"Client: {customer_name}\n"
+            f"Téléphone: {customer_phone}\n"
+            f"Adresse: {customer_address}\n"
+            f"Commune: {commune}\n\n"
+            f"Produits:\n{details_produits}\n"
+            f"Livraison: {delivery_fee} FCFA\n"
+            f"Total: {total_general} FCFA"
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.OWNER_EMAIL],
+    )
+
+    send_mail(
+        subject=f"Commande à livrer #{commande.id}",
+        message=(
+            f"Commande #{commande.id}\n"
+            f"Client: {customer_name}\n"
+            f"Téléphone: {customer_phone}\n"
+            f"Commune: {commune}\n\n"
+            f"Adresse: {customer_address}\n"
+            f"Produits:\n{details_produits}\n"
+            f"Livraison: {delivery_fee} FCFA"
+        ),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[settings.DELIVERY_EMAIL],
+    )
+
+    # ================= WEBSOCKET =================
+    try:
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "notifications",
+            {
+                "type": "send_notification",
+                "message": f"Nouvelle commande #{commande.id} - {customer_name}"
+            }
+        )
+    except Exception as e:
+        print("Erreur WebSocket:", e)
+
+    # ================= SUCCESS =================
+    messages.success(
+        request,
+        "Commande enregistrée ✅ Choisissez votre mode de paiement"
+    )
+
+    return redirect("payment", commande.id)
+def checkout_viewN(request):
+
+    # ================= TABLE =================
+    table_number = request.session.get("table")
+    table = None
+
+    if table_number:
+        table = Table.objects.filter(number=table_number).first()
+
+    # ================= GET =================
+    if request.method == "GET":
+        return render(request, "checkout.html", {"table": table})
+
+    # ================= POST =================
+    cart_items_raw = request.POST.get("cart_items")
+
+    try:
+        cart_items = json.loads(cart_items_raw) if cart_items_raw else []
+    except json.JSONDecodeError:
+        messages.error(request, "Panier invalide.")
+        return redirect("panier")
+
+    if not cart_items:
+        messages.error(request, "Votre panier est vide.")
+        return redirect("panier")
+
+    # ================= CREATE ORDER =================
+    order = Order.objects.create(
+        table=table,
+        total=0
+    )
+
+    total = 0
+
+    # ================= LOOP ITEMS =================
+    for item in cart_items:
+
+        try:
+            product_id = int(item.get("id"))
+            quantity = int(item.get("qty", 1) or 1)
+            price = float(item.get("price", 0))
+        except (TypeError, ValueError):
+            continue  # skip item invalide
+
+        # 🔥 SECURITE QUANTITY
+        if quantity < 1:
+            quantity = 1
+
+        product = Product.objects.filter(id=product_id).first()
+
+        if not product:
+            continue
+
+        # 🔥 CALCUL TOTAL
+        total += price * quantity
+
+        # 🔥 CREATE ORDER ITEM
+        OrderItem.objects.create(
+            order=order,
+            product=product,
+            quantity=quantity,
+            price=price
+        )
+
+    # ================= SAVE TOTAL =================
+    order.total = total
+    order.save()
+
+    # ================= SUCCESS =================
+    messages.success(request, "Commande validée avec succès ✅")
+
+    return redirect("payment", commande_id=order.id)
+
 def panier_ajouter(request, product_id):
     panier = request.session.get('panier', {})
     produit = get_object_or_404(Product, id=product_id)
@@ -939,10 +939,6 @@ def panier_detail(request):
         'total': total
     })
 
-
-
-
-
 def kitchen(request):
 
     commandes = Commande.objects.filter(is_delivered=False).order_by("-created_at")
@@ -951,10 +947,8 @@ def kitchen(request):
         "commandes": commandes
     })
 
-
 import requests
 import uuid
-
 from django.views.decorators.csrf import csrf_exempt
 from .models import Commande
 
@@ -968,7 +962,7 @@ def payment_view(request, commande_id):
         payment_method = request.POST.get("payment_method")
         if not payment_method:
             return redirect("payment", commande_id=commande.id)
-
+            
         if payment_method == "cash":
             # Paiement à la livraison
             commande.is_paid = False
@@ -978,8 +972,8 @@ def payment_view(request, commande_id):
         elif payment_method in ["mobile_money", "wave"]:
             # Sandbox CinetPay
             payload = {
-                # "site_id": "100123",            # Sandbox site_id
-                "password": "Konate@5346",
+                "site_id": "100123",            # Sandbox site_id
+                # "password": "Konate@5346",
                 "api_key": "sk_test_SeIIUz8iFS74xVJnsDefYAzU",  # Sandbox api_key
                 "transaction_id": f"CMD-{commande.id}",
                 "amount": commande.total,
@@ -1015,11 +1009,10 @@ def payment_notify(request):
             return HttpResponse("Transaction ID manquant", status=400)
 
         payload = {
-            "apikey": settings.CINETPAY_API_KEY,
-            "password": settings.CINETPAY_API_PASSWORD,
-            "transaction_id": transaction_id
-        }
-
+          "apikey": settings.CINETPAY_API_KEY,
+          "site_id": settings.CINETPAY_SITE_ID,
+          "transaction_id": transaction_id
+         }
         try:
             response = requests.post(
                 "https://api-checkout.cinetpay.com/v2/payment",
@@ -1113,20 +1106,16 @@ def process_mobile_money(request, commande_id):
         commande = get_object_or_404(Commande, id=commande_id)
 
         # 🔹 Config CinetPay
-        # CINETPAY_SITE_ID = "TON_SITE_ID"
-        CINETPAY_API_PASSWORD = "Konate@5346"  # très important
+        CINETPAY_SITE_ID = "TON_SITE_ID"
+        # CINETPAY_API_PASSWORD = "Konate@5346"  # très important
         CINETPAY_API_KEY = "sk_test_SeIIUz8iFS74xVJnsDefYAzU"
         CINETPAY_MODE = "TEST"  # "PROD" en production
 
         configs = Config(
-            credentials=Credential(site_id=CINETPAY_SITE_ID, apikey=CINETPAY_API_KEY),
-            currency="XOF",
-            channels=["MOBILE_MONEY"],
-            language="fr",
-            lock_phone_number=False,
-            raise_on_error=True
-        )
-
+            credentials=Credential(
+                site_id=CINETPAY_SITE_ID,
+                apikey=CINETPAY_API_KEY
+            )),
         cp = Client(configs=configs)
 
         # 🔹 Création de la transaction Mobile Money
@@ -1176,7 +1165,7 @@ import json
 import traceback
 
 @csrf_exempt
-def process_mobile_money(request, commande_id):
+def process_mobile_money555(request, commande_id):
 
     if request.method != "POST":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
@@ -1190,15 +1179,17 @@ def process_mobile_money(request, commande_id):
         if not operator or not phone:
             return JsonResponse({"error": "Numéro ou opérateur manquant"}, status=400)
 
-        phone = phone.strip().replace(" ", "")
+        # 🔥 CLEAN PHONE
+        phone = phone.replace(" ", "").strip()
 
         commande = get_object_or_404(Commande, id=commande_id)
 
         trans_id = f"CMD{commande.id}_{int(time.time())}"
 
+        # 🔥 PAYLOAD CORRECT
         payload = {
-            "apikey": "sk_test_SeIIUz8iFS74xVJnsDefYAzU",
-            "password": "Konate@5346",
+            "apikey": settings.CINETPAY_API_KEY,
+            "site_id": settings.CINETPAY_SITE_ID,
 
             "transaction_id": trans_id,
             "amount": int(commande.total),
@@ -1224,11 +1215,12 @@ def process_mobile_money(request, commande_id):
         )
 
         result = response.json()
-        print("CINETPAY RESULT:", result)
+
+        print("CINETPAY RESPONSE:", result)
 
         if result.get("code") != "201":
             return JsonResponse({
-                "error": "Erreur paiement",
+                "error": "Erreur CinetPay",
                 "details": result
             }, status=400)
 
@@ -1239,10 +1231,68 @@ def process_mobile_money(request, commande_id):
         })
 
     except Exception as e:
+        print("ERROR:", str(e))
+        print(traceback.format_exc())
         return JsonResponse({"error": str(e)}, status=500)
-
 # Paiement Wave
 # =========================
+
+@csrf_exempt
+def process_mobile_money(request, commande_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        operator = data.get("operator")
+        phone = data.get("phone")
+
+        commande = get_object_or_404(Commande, id=commande_id)
+
+        trans_id = f"CMD{commande.id}_{int(time.time())}"
+
+        payload = {
+            "apikey": "TON_API_KEY",
+            "site_id": "TON_SITE_ID",
+            "transaction_id": trans_id,
+            "amount": int(commande.total),
+            "currency": "XOF",
+            "channels": operator.upper(),
+
+            "description": f"Commande #{commande.id}",
+
+            "customer_name": commande.customer_name,
+            "customer_surname": commande.customer_name,
+            "customer_phone_number": phone,
+            "customer_email": commande.customer_email,
+
+            "notify_url": "http://127.0.0.1:8000/payment/notify/",
+            "return_url": f"http://127.0.0.1:8000/payment/success/{commande.id}/"
+        }
+
+        response = requests.post(
+            "https://api-checkout.cinetpay.com/v2/payment",
+            json=payload
+        )
+
+        result = response.json()
+        print("CINETPAY:", result)
+
+        if result.get("code") != "201":
+            return JsonResponse({
+                "error": "Erreur paiement",
+                "details": result
+            }, status=400)
+
+        return JsonResponse({
+            "trans_id": trans_id
+        })
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+
 @csrf_exempt
 def process_wave_payment(request, commande_id):
 
@@ -1256,8 +1306,8 @@ def process_wave_payment(request, commande_id):
 
         payload = {
             "apikey": "sk_test_SeIIUz8iFS74xVJnsDefYAzU",
-            "password": "Konate@5346",
-
+            # "password": "Konate@5346",
+             "site_id": "XXXX",  
             "transaction_id": trans_id,
             "amount": int(commande.total),
             "currency": "XOF",
@@ -1306,7 +1356,8 @@ def check_payment_status(request, trans_id):
     try:
         payload = {
             "apikey": settings.CINETPAY_API_KEY,
-            "password": settings.CINETPAY_API_PASSWORD,
+            # "password": settings.CINETPAY_API_PASSWORD,
+            "site_id": settings.CINETPAY_SITE_ID,
             "transaction_id": trans_id
         }
 
@@ -1328,3 +1379,4 @@ def check_payment_status(request, trans_id):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+

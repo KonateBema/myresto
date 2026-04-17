@@ -36,7 +36,8 @@ EMAIL_HOST_USER = "bemak4178@gmail.com"
 EMAIL_HOST_PASSWORD = "twcc awcf ydrs dvgq"
 
 CINETPAY_API_KEY = "sk_test_SeIIUz8iFS74xVJnsDefYAzU"
-CINETPAY_API_PASSWORD = "Konate@5346"  # très important
+# CINETPAY_API_PASSWORD = "Konate@5346"  # très important
+CINETPAY_SITE_ID = "XXXXXX"
 CINETPAY_NOTIFY_URL = "http://127.0.0.1:8000/payment/notify/"
 CINETPAY_RETURN_URL = "http://127.0.0.1:8000/payment/success/"
 
