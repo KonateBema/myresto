@@ -952,9 +952,8 @@ import uuid
 from django.views.decorators.csrf import csrf_exempt
 from .models import Commande
 
-# =========================
 # FORMULAIRE DE PAIEMENT
-# =========================
+
 def payment_view(request, commande_id):
     commande = get_object_or_404(Commande, id=commande_id)
 
@@ -1081,10 +1080,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 import json
-
 from myapp.models import Commande
 
-# 🔹 Import CinetPay
 from cinetpay import Client, Config, Credential
 
 
@@ -1317,7 +1314,7 @@ def process_wave_payment(request, commande_id):
         commande.transaction_id = trans_id
         commande.payment_status = "PENDING"
         commande.save()
-        
+
         payload = {
             "apikey": "sk_test_SeIIUz8iFS74xVJnsDefYAzU",
             # "password": "Konate@5346",
