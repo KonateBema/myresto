@@ -337,6 +337,8 @@ class Commande(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     is_paid = models.BooleanField(default=False)  # garde pour compatibilité
     is_delivered = models.BooleanField(default=False)
+    payment_method = models.CharField(max_length=20, default="unknown")
+    payment_status = models.CharField(max_length=20, default="PENDING")
     transaction_id = models.CharField(max_length=100, null=True, blank=True)
     # ================= AUTRES =================
     created_at = models.DateTimeField(auto_now_add=True)

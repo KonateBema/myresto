@@ -199,11 +199,14 @@ class CommandeAdmin(admin.ModelAdmin):
         'total',
         'payment_status_colored',
         'status_colored',
+        "payment_method",
+        "payment_status",
         'created_at',
     )
 
     list_filter = (
         'payment_status',
+        "payment_method",
         'status',
         'created_at',
     )

@@ -1239,6 +1239,9 @@ def process_mobile_money555(request, commande_id):
 
 @csrf_exempt
 def process_mobile_money(request, commande_id):
+
+ 
+
     if request.method != "POST":
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
 
@@ -1251,6 +1254,12 @@ def process_mobile_money(request, commande_id):
 
         trans_id = f"CMD{commande.id}_{int(time.time())}"
 
+
+  # 🔥 SAUVEGARDE AVANT ENVOI
+        commande.payment_method = operator
+        commande.transaction_id = trans_id
+        commande.payment_status = "PENDING"
+        commande.save()
         payload = {
             "apikey": "TON_API_KEY",
             "site_id": "TON_SITE_ID",
@@ -1303,7 +1312,12 @@ def process_wave_payment(request, commande_id):
         commande = get_object_or_404(Commande, id=commande_id)
 
         trans_id = f"WAVE{commande.id}_{int(time.time())}"
-
+ # 🔥 SAUVEGARDE
+        commande.payment_method = "WAVE"
+        commande.transaction_id = trans_id
+        commande.payment_status = "PENDING"
+        commande.save()
+        
         payload = {
             "apikey": "sk_test_SeIIUz8iFS74xVJnsDefYAzU",
             # "password": "Konate@5346",
