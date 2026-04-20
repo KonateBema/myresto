@@ -218,7 +218,7 @@ class CommandeAdmin(admin.ModelAdmin):
     )
 
     ordering = ('-created_at',)
-
+    list_per_page = 10
     # ================= PAIEMENT =================
     def payment_status_colored(self, obj):
         colors = {

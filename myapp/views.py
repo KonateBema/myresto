@@ -43,7 +43,7 @@ from cinetpay import Config, Credential, Order
 
 # =================== HOME ===================
 
-def home(request):
+def homeBBB(request):
     categories = Category.objects.all()
     # 🔹 Récupération du numéro de table depuis l'URL
     table_number = request.GET.get("table")
@@ -98,7 +98,99 @@ def home(request):
 
     # 🔹 Rendu du template
     return render(request, 'home.html', context)
-    
+
+import qrcode
+import base64
+from io import BytesIO
+from django.db.models import Q
+from django.shortcuts import render
+
+def home(request):
+
+    categories = Category.objects.all()
+
+    # =========================
+    # TABLE (URL + SESSION)
+    # =========================
+    table_number = request.GET.get("table")
+
+    if table_number:
+        try:
+            table_number = int(table_number)
+            request.session["table"] = table_number
+        except (ValueError, TypeError):
+            request.session.pop("table", None)
+            table_number = None
+
+    table_session = request.session.get("table")
+
+    # =========================
+    # HOME DATA
+    # =========================
+    home_data = HomePage.objects.first()
+
+    # fallback sécurité
+    if not home_data:
+        home_data = None
+
+    slides = HomeSlide.objects.all()
+
+    # =========================
+    # PRODUCTS
+    # =========================
+    query = request.GET.get("q")
+
+    products = Product.objects.filter(quantity__gt=0)
+
+    if query:
+        products = products.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query)
+        )
+
+    # =========================
+    # QR CODE (IMPORTANT FIX)
+    # =========================
+    # 👉 on encode la table dans l'URL si elle existe
+    base_url = request.build_absolute_uri("/")
+
+    if table_session:
+        qr_url = f"{base_url}?table={table_session}"
+    else:
+        qr_url = base_url
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=4,
+        border=2,
+    )
+
+    qr.add_data(qr_url)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+
+    qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+    # =========================
+    # CONTEXT
+    # =========================
+    context = {
+        "home_data": home_data,
+        "slides": slides,
+        "products": products,
+        "query": query,
+        "qr_code": qr_code_base64,
+        "table": table_session,
+        "categories": categories,
+    }
+
+    return render(request, "home.html", context)
+
 def home1(request):
     # 🔹 Récupération du numéro de table depuis l'URL
     table_number = request.GET.get("table")
@@ -1391,3 +1483,88 @@ def check_payment_status(request, trans_id):
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
 
+
+
+from django.http import JsonResponse
+
+
+def wave_payment(request, commande_id):
+    commande = get_object_or_404(Commande, id=commande_id)
+
+    amount = commande.total
+
+    url = f"https://pay.wave.com/m/M_ci_r3vEPsG6pQsB/c/ci/?amount={amount}"
+
+    return JsonResponse({"url": url})
+
+
+
+
+
+# def category_products(request, id):
+#     category = get_object_or_404(Category, id=id)
+#     # products = Product.objects.filter(category=category)
+#     products = Product.objects.filter(categories=category)
+#     return render(request, 'category_products.html', {
+#         'category': category,
+#         'products': products
+#     })
+
+def category_products(request, id):
+
+    categories = Category.objects.all()
+    category = get_object_or_404(Category, id=id)
+    # products = Product.objects.filter(category=category, quantity__gt=0)
+    products = Product.objects.filter(categories=category)
+
+    # 🔹 récupérer table
+    table = request.session.get("table")
+
+    # 🔹 générer QR (IMPORTANT)
+    url = request.build_absolute_uri('/')  # ou avec ?table=X si besoin
+
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,
+        box_size=4,
+        border=2,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+
+    qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+    return render(request, "category_products.html", {
+        "products": products,
+        "categories": categories,
+        "category": category,
+        "qr_code": qr_code_base64,  # ✅ AJOUT ICI
+        "table": table
+    })
+
+
+def generate_qr(table_id):
+    url = f"http://127.0.0.1:8000/?table={table_id}"
+
+    qr = qrcode.make(url)
+    buffer = BytesIO()
+    qr.save(buffer, format="PNG")
+
+    return base64.b64encode(buffer.getvalue()).decode()
+
+
+
+def cash_payment(request, commande_id):
+    commande = get_object_or_404(Commande, id=commande_id)
+
+    # 🔹 mise à jour statut
+    commande.payment_method = "CASH"
+    commande.payment_status = "PENDING"  # ou PAID si tu veux direct
+    commande.save()
+
+    return redirect("payment_success", commande_id=commande.id)

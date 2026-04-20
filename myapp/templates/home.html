@@ -124,7 +124,7 @@
                         🔥 Tous
                     </li>
 
-                    {% for category in categories %}
+                    <!-- {% for category in categories %}
                     <li class="category-item" data-category="{{ category.id }}">
 
                         {% if category.name == "Repas" %}
@@ -141,7 +141,30 @@
 
                         {{ category.name }}
                     </li>
-                    {% endfor %}
+                    {% endfor %} -->
+                    {% for category in categories %}
+<li>
+
+    <a href="{% url 'category_products' category.id %}" class="category-item d-block text-decoration-none text-dark">
+
+        {% if category.name == "Repas" %}
+            🍔
+        {% elif category.name == "Boisson" %}
+            🥤
+        {% elif category.name == "Gateau" %}
+            🍰
+        {% elif category.name == "Desserts" %}
+            🍨
+        {% else %}
+            🍽️
+        {% endif %}
+
+        {{ category.name }}
+
+    </a>
+
+</li>
+{% endfor %}
 
                 </ul>
             </div>

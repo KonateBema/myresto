@@ -60,9 +60,11 @@ urlpatterns = [
     path('payment/process_mobile_money/<int:commande_id>/', views.process_mobile_money, name='process_mobile_money'),
     # path("payment/success/", payment_success, name="payment_success"),
     path('payer/<int:commande_id>/', views.payment_view, name='payer_commande'),
-    path('payment/process_wave_payment/<int:commande_id>/', process_wave_payment, name='process_wave_payment'),
+    # path('payment/process_wave_payment/<int:commande_id>/', process_wave_payment, name='process_wave_payment'),
+    path("payment/wave/<int:commande_id>/", views.wave_payment, name="wave_payment"),
     #  path('payer/<int:commande_id>/', views.payment_view, name='payer_commande'),  # Utilise payment_view
-
+    path('category/<int:id>/', views.category_products, name='category_products'),
+    path("payment/cash/<int:commande_id>/", views.cash_payment, name="cash_payment"),
 ]
 # permette de charger le fichier image dans django
 if settings.DEBUG:

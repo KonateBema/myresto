@@ -279,7 +279,7 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
-class Commande(models.Model):
+class Commande111(models.Model):
 
     # ================= STATUS COMMANDE =================
     STATUS_CHOICES = [
@@ -364,6 +364,94 @@ class Commande(models.Model):
 
         super().save(*args, **kwargs)
 # ================= SLIDES =================
+class Commande(models.Model):
+
+    # ================= STATUS COMMANDE =================
+    STATUS_CHOICES = [
+        ('pending', 'En attente'),
+        ('processing', 'En cours'),
+        ('delivered', 'Livrée'),
+    ]
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+
+    # ================= PAIEMENT =================
+    PAYMENT_METHOD_CHOICES = [
+        ('wave', 'Wave'),
+        ('mobile_money', 'Mobile Money'),
+        ('cash', 'Paiement à la livraison'),
+    ]
+
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'En attente'),
+        ('paid', 'Payé'),
+        ('failed', 'Échoué'),
+    ]
+
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_METHOD_CHOICES,
+        blank=True,
+        null=True
+    )
+
+    payment_status = models.CharField(
+        max_length=20,
+        choices=PAYMENT_STATUS_CHOICES,
+        default='pending'
+    )
+
+    payment_proof = models.ImageField(
+        upload_to="payments/",
+        blank=True,
+        null=True
+    )
+
+    # ================= CLIENT =================
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    customer_name = models.CharField(max_length=255)
+    customer_email = models.EmailField()
+    customer_phone = models.CharField(max_length=20)
+    customer_address = models.TextField()
+
+    # ================= COMMANDE =================
+    total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    is_paid = models.BooleanField(default=False)
+    is_delivered = models.BooleanField(default=False)
+    transaction_id = models.CharField(max_length=100, null=True, blank=True)
+
+    # ================= AUTRES =================
+    created_at = models.DateTimeField(auto_now_add=True)
+    table = models.ForeignKey('Table', on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        verbose_name = "Commande"
+        verbose_name_plural = "Commandes"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Commande #{self.id} - {self.customer_name}"
+
+    # ================= SYNC AUTO =================
+    def save(self, *args, **kwargs):
+
+        if self.payment_status == "paid":
+            self.is_paid = True
+        else:
+            self.is_paid = False
+
+        if self.status == "delivered":
+            self.is_delivered = True
+        else:
+            self.is_delivered = False
+
+        super().save(*args, **kwargs)
+
+
 class HomeSlide(models.Model):
     title = models.CharField(max_length=255)
     message = models.TextField()
