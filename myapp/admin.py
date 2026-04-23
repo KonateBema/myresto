@@ -11,6 +11,10 @@ from django.contrib.auth.models import User, Group
 from django.contrib.auth.admin import UserAdmin, GroupAdmin
 from .models import Commande, CommandeItem  # Vérifie que c'est le dernier Commande
 from .models import Slide ,HomeSlide
+from django.utils.timezone import now
+from django.db.models import Sum
+from .models import CaisseProxy
+
 # ==============================
 #      PRODUCT ADMIN
 # ==============================
@@ -254,7 +258,15 @@ class CommandeAdmin(admin.ModelAdmin):
 
     def mark_as_paid(self, request, queryset):
         queryset.update(payment_status="paid")
-    mark_as_paid.short_description = "✅ Marquer comme payé"
+        mark_as_paid.short_description = "✅ Marquer comme payé"
+
+
+    actions = ["mark_as_paid", "mark_cash_paid"]
+
+    def mark_cash_paid(self, request, queryset):
+      queryset.update(payment_status="paid", status="processing")
+
+      mark_cash_paid.short_description = "💵 Valider paiement cash"
 # ==============================
 #      ADMIN PERSONNALISÉ
 # ==============================
@@ -263,18 +275,50 @@ class MyAdminSite(admin.AdminSite):
 
     def get_urls(self):
         urls = super().get_urls()
-        # Dashboard à la racine de l'admin
+
         custom_urls = [
             path('', self.admin_view(self.dashboard_view), name='dashboard'),
+            path('caisse/', self.admin_view(self.caisse_view), name='caisse_dashboard'),
         ]
+
         return custom_urls + urls
 
+    def each_context(self, request):
+        context = super().each_context(request)
+        context["caisse_url"] = "/admin/caisse/"
+        return context
+
+    # ================= CAISSE =================
+    def caisse_view(self, request):
+
+        today = now().date()
+
+        commandes_du_jour = Commande.objects.filter(created_at__date=today)
+
+        total_jour = commandes_du_jour.aggregate(total=Sum("total"))["total"] or 0
+
+        en_attente_cash = Commande.objects.filter(
+            payment_method="cash",
+            payment_status="pending"
+        )
+
+        context = dict(
+            self.each_context(request),
+            total_jour=total_jour,
+            commandes_du_jour=commandes_du_jour,
+            en_attente_cash=en_attente_cash,
+        )
+
+        return TemplateResponse(request, "admin/caisse_dashboard.html", context)
+
+    # ================= DASHBOARD =================
     def dashboard_view(self, request):
+
         last_commands = (
             Commande.objects
-            .select_related('user')
             .order_by('-created_at')[:5]
         )
+
         monthly_orders = (
             Commande.objects
             .annotate(month=TruncMonth("created_at"))
@@ -285,13 +329,16 @@ class MyAdminSite(admin.AdminSite):
 
         context = dict(
             self.each_context(request),
-             commande=last_commands,  # 🔥 OBLIGATOIRE
+            commande=last_commands,
             products_count=Product.objects.count(),
-            orders_pending=Commande.objects.filter(is_delivered=False).count(),
-            orders_delivered=Commande.objects.filter(is_delivered=True).count(),
+            orders_pending=Commande.objects.filter(payment_status="pending").count(),
+            orders_delivered=Commande.objects.filter(payment_status="paid").count(),
             monthly_orders=monthly_orders,
         )
+
         return TemplateResponse(request, "admin/dashboard.html", context)
+
+
 
 class SlideAdmin(admin.ModelAdmin):
     list_display = ('title', 'image')
@@ -300,6 +347,11 @@ class SlideAdmin(admin.ModelAdmin):
 class HomeSlideAdmin(admin.ModelAdmin):
     list_display = ("title", "image")
 
+
+class CaisseAdmin(admin.ModelAdmin):
+
+    def changelist_view(self, request, extra_context=None):
+        return redirect("/admin/caisse/")
 # admin_site.register(Slide, SlideAdmin)
 # ==============================
 #      INSTANTIATION DE L'ADMIN PERSONNALISÉ
@@ -318,3 +370,4 @@ admin_site.register(HomePage, HomePageAdmin)
 admin_site.register(Commande, CommandeAdmin)
 admin_site.register(Slide, SlideAdmin)
 admin_site.register(HomeSlide, HomeSlideAdmin)  # <-- nouveau modèle
+admin_site.register(CaisseProxy, CaisseAdmin)

@@ -1252,77 +1252,6 @@ from cinetpay import Client, Config, Credential
 import json
 
 import traceback
-
-@csrf_exempt
-def process_mobile_money555(request, commande_id):
-
-    if request.method != "POST":
-        return JsonResponse({"error": "Méthode non autorisée"}, status=405)
-
-    try:
-        data = json.loads(request.body)
-
-        operator = data.get("operator")
-        phone = data.get("phone")
-
-        if not operator or not phone:
-            return JsonResponse({"error": "Numéro ou opérateur manquant"}, status=400)
-
-        # 🔥 CLEAN PHONE
-        phone = phone.replace(" ", "").strip()
-
-        commande = get_object_or_404(Commande, id=commande_id)
-
-        trans_id = f"CMD{commande.id}_{int(time.time())}"
-
-        # 🔥 PAYLOAD CORRECT
-        payload = {
-            "apikey": settings.CINETPAY_API_KEY,
-            "site_id": settings.CINETPAY_SITE_ID,
-
-            "transaction_id": trans_id,
-            "amount": int(commande.total),
-            "currency": "XOF",
-            "channels": "MOBILE_MONEY",
-
-            "description": f"Commande #{commande.id}",
-
-            "customer_name": commande.customer_name,
-            "customer_surname": commande.customer_name,
-            "customer_phone_number": phone,
-            "customer_email": commande.customer_email,
-
-            "notify_url": "http://127.0.0.1:8000/payment/notify/",
-            "return_url": f"http://127.0.0.1:8000/payment/success/{commande.id}/",
-
-            "operator": operator.upper()
-        }
-
-        response = requests.post(
-            "https://api-checkout.cinetpay.com/v2/payment",
-            json=payload
-        )
-
-        result = response.json()
-
-        print("CINETPAY RESPONSE:", result)
-
-        if result.get("code") != "201":
-            return JsonResponse({
-                "error": "Erreur CinetPay",
-                "details": result
-            }, status=400)
-
-        return JsonResponse({
-            "status": "success",
-            "payment_url": result["data"]["payment_url"],
-            "trans_id": trans_id
-        })
-
-    except Exception as e:
-        print("ERROR:", str(e))
-        print(traceback.format_exc())
-        return JsonResponse({"error": str(e)}, status=500)
 # Paiement Wave
 # =========================
 
@@ -1500,28 +1429,27 @@ def wave_payment(request, commande_id):
 
 
 
+from .models import Slide  # si pas déjà importé
 
-# def category_products(request, id):
-#     category = get_object_or_404(Category, id=id)
-#     # products = Product.objects.filter(category=category)
-#     products = Product.objects.filter(categories=category)
-#     return render(request, 'category_products.html', {
-#         'category': category,
-#         'products': products
-#     })
+from django.db.models import Q
 
 def category_products(request, id):
 
     categories = Category.objects.all()
     category = get_object_or_404(Category, id=id)
-    # products = Product.objects.filter(category=category, quantity__gt=0)
+
     products = Product.objects.filter(categories=category)
 
-    # 🔹 récupérer table
+    # 🔥 SLIDER DYNAMIQUE
+    slides = Slide.objects.filter(
+        Q(categories=category) | Q(categories__isnull=True),
+        is_active=True
+    ).distinct()
+
     table = request.session.get("table")
 
-    # 🔹 générer QR (IMPORTANT)
-    url = request.build_absolute_uri('/')  # ou avec ?table=X si besoin
+    # QR CODE
+    url = request.build_absolute_uri('/')
 
     qr = qrcode.QRCode(
         version=1,
@@ -1543,10 +1471,10 @@ def category_products(request, id):
         "products": products,
         "categories": categories,
         "category": category,
-        "qr_code": qr_code_base64,  # ✅ AJOUT ICI
+        "slides": slides,
+        "qr_code": qr_code_base64,
         "table": table
     })
-
 
 def generate_qr(table_id):
     url = f"http://127.0.0.1:8000/?table={table_id}"
@@ -1557,14 +1485,146 @@ def generate_qr(table_id):
 
     return base64.b64encode(buffer.getvalue()).decode()
 
+# def cash_payment(request, commande_id):
+#     commande = get_object_or_404(Commande, id=commande_id)
+
+#     # 🔹 mise à jour statut
+#     commande.payment_method = "CASH"
+#     commande.payment_status = "PENDING"  # ou PAID si tu veux direct
+#     commande.save()
+
+#     return redirect("payment_success", commande_id=commande.id)
+
+def cash_paymentEnc(request, commande_id):
+    commande = get_object_or_404(Commande, id=commande_id)
+
+    # ✅ Mettre à jour la commande
+    commande.payment_method = "CASH"
+    commande.payment_status = "PENDING"
+    commande.save()
+
+    return render(request, "cash_payment.html", {
+        "commande": commande
+    })
 
 
 def cash_payment(request, commande_id):
     commande = get_object_or_404(Commande, id=commande_id)
 
-    # 🔹 mise à jour statut
-    commande.payment_method = "CASH"
-    commande.payment_status = "PENDING"  # ou PAID si tu veux direct
+    # ✅ CORRECT
+    commande.payment_method = "cash"
+    commande.payment_status = "pending"
+
+    # optionnel mais recommandé
+    commande.status = "processing"
+
     commande.save()
 
-    return redirect("payment_success", commande_id=commande.id)
+    return render(request, "cash_payment.html", {
+        "commande": commande
+    })
+
+# def caisse(request):
+
+#     commandes = Commande.objects.filter(
+#         payment_method="CASH",
+#         payment_status="PENDING"
+#     ).order_by('-created_at')
+
+#     return render(request, "caisse.html", {
+#         "commandes": commandes
+#     })
+
+# def valider_paiement(request, commande_id):
+
+#     commande = Commande.objects.get(id=commande_id)
+
+#     commande.payment_status = "PAID"
+#     commande.save()
+
+#     return JsonResponse({"success": True})
+
+def caisse11(request):
+
+    today = timezone.now().date()
+
+    # 🔹 Commandes CASH en attente
+    commandes = Commande.objects.filter(
+        payment_method="CASH",
+        payment_status="PENDING"
+    ).order_by('-created_at')
+
+    # 🔹 Total encaissé aujourd’hui
+    total_jour = Commande.objects.filter(
+        payment_status="PAID",
+        created_at__date=today
+    ).aggregate(total=Sum('total'))['total'] or 0
+
+    # 🔹 Nombre de commandes payées
+    nb_commandes = Commande.objects.filter(
+        payment_status="PAID",
+        created_at__date=today
+    ).count()
+
+    # 🔹 Commandes en attente
+    en_attente = commandes.count()
+
+    return render(request, "caisse.html", {
+        "commandes": commandes,
+        "total_jour": total_jour,
+        "nb_commandes": nb_commandes,
+        "en_attente": en_attente
+    })
+
+def caisse(request):
+
+    today = timezone.now().date()
+
+    # 🔥 COMMANDES CASH A VALIDER (IMPORTANT)
+    en_attente_cash = Commande.objects.filter(
+        payment_method="cash",          # ⚠️ en minuscule selon ton modèle
+        payment_status="pending",       # ⚠️ idem
+        status="processing"             # ou "pending" selon ton flow
+    ).order_by('-created_at')
+
+    # 🔥 TOTAL DU JOUR
+    total_jour = Commande.objects.filter(
+        payment_status="paid",
+        created_at__date=today
+    ).aggregate(total=Sum('total'))['total'] or 0
+
+    return render(request, "caisse.html", {
+        "en_attente_cash": en_attente_cash,
+        "total_jour": total_jour
+    })
+
+
+# def valider_paiement(request, commande_id):
+
+#     commande = Commande.objects.get(id=commande_id)
+
+#     commande.payment_status = "PAID"
+#     commande.save()
+
+#     return JsonResponse({"success": True})
+
+def valider_cash(request, id):
+
+    commande = get_object_or_404(Commande, id=id)
+
+    commande.payment_status = "paid"
+    commande.status = "processing"
+    commande.save()
+
+    return redirect("/admin/caisse/")
+
+def valider_paiement(request, commande_id):
+
+    commande = get_object_or_404(Commande, id=commande_id)
+
+    # 🔥 Mise à jour paiement
+    commande.payment_status = "paid"
+    commande.status = "processing"  # ou delivered si tu veux direct
+    commande.save()
+
+    return redirect("/admin/caisse/")

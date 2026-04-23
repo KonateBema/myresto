@@ -65,6 +65,9 @@ urlpatterns = [
     #  path('payer/<int:commande_id>/', views.payment_view, name='payer_commande'),  # Utilise payment_view
     path('category/<int:id>/', views.category_products, name='category_products'),
     path("payment/cash/<int:commande_id>/", views.cash_payment, name="cash_payment"),
+    path('caisse/', views.caisse, name='caisse'),
+    path('caisse/valider/<int:commande_id>/', views.valider_paiement, name='valider_paiement'),
+    path('admin/valider-cash/<int:id>/', views.valider_cash),
 ]
 # permette de charger le fichier image dans django
 if settings.DEBUG:

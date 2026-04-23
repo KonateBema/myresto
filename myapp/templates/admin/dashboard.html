@@ -137,20 +137,64 @@
     table tr:nth-child(even) { background-color: #2a2d3b; }
     table tr:nth-child(odd) { background-color: #232634; }
     table tr:hover { background-color: #33364d; }
+    
+    .caisse-link {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    color: white !important;
+    font-weight: bold;
+}
+
+.caisse-link:hover {
+    background: linear-gradient(135deg, #218838, #1ca985);
+}
+    
     </style>
     
 {% endblock %}
 
 {% block content %}
-  <div class="sidebar">
+
+  <!-- <div class="sidebar">
     <a href="{% url 'admin:auth_user_changelist' %}"><i class="fas fa-user"></i> Users</a>
     <a href="{% url 'admin:auth_group_changelist' %}"><i class="fas fa-users-cog"></i> Groups</a>
     <a href="{% url 'admin:myapp_category_changelist' %}"><i class="fas fa-tags"></i> Categories</a>
     <a href="{% url 'admin:myapp_commande_changelist' %}"><i class="fas fa-shopping-cart"></i> Commandes</a>
     <a href="{% url 'admin:myapp_supplier_changelist' %}"><i class="fas fa-truck"></i> Fournisseurs</a>
     <a href="{% url 'admin:myapp_product_changelist' %}"><i class="fas fa-box"></i> Produits</a>
-</div>  
+    <a href="/admin/caisse/" class="button">💰 Caisse</a>
+</div>   -->
+<div class="sidebar">
 
+    <a href="{% url 'admin:auth_user_changelist' %}">
+        <i class="fas fa-user"></i> Users
+    </a>
+
+    <a href="{% url 'admin:auth_group_changelist' %}">
+        <i class="fas fa-users-cog"></i> Groups
+    </a>
+
+    <a href="{% url 'admin:myapp_category_changelist' %}">
+        <i class="fas fa-tags"></i> Categories
+    </a>
+
+    <a href="{% url 'admin:myapp_commande_changelist' %}">
+        <i class="fas fa-shopping-cart"></i> Commandes
+    </a>
+
+    <a href="{% url 'admin:myapp_supplier_changelist' %}">
+        <i class="fas fa-truck"></i> Fournisseurs
+    </a>
+
+    <a href="{% url 'admin:myapp_product_changelist' %}">
+        <i class="fas fa-box"></i> Produits
+    </a>
+
+    <!-- ✅ CAISSE -->
+    <a href="{% url 'admin:caisse_dashboard' %}" class="caisse-link">
+        <i class="fas fa-cash-register"></i> Caisse
+    </a>
+
+</div>
 
 <div class="main-content">
     <!-- Stat cards -->

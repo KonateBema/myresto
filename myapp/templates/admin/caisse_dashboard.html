@@ -1,0 +1,49 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+
+<h2>💰 Dashboard Caisse</h2>
+
+<div style="padding:20px;background:#fff;border-radius:10px;margin-bottom:20px;">
+    <h3>Chiffre du jour</h3>
+    <h1 style="color:green;">{{ total_jour }} FCFA</h1>
+</div>
+
+<!-- <h3>📋 Commandes Cash en attente</h3> -->
+
+<h3>📋 Commandes CASH à valider</h3>
+
+<table class="table">
+    <tr>
+        <th>ID</th>
+        <th>Client</th>
+        <th>Total</th>
+        <th>Date</th>
+        <th>Action</th>
+    </tr>
+
+    {% for cmd in en_attente_cash %}
+    <tr>
+        <td>{{ cmd.id }}</td>
+        <td>{{ cmd.customer_name }}</td>
+        <td>{{ cmd.total }} FCFA</td>
+        <td>{{ cmd.created_at|date:"H:i" }}</td>
+        <td>
+            <!-- <a href="/admin/valider-cash/{{ cmd.id }}/"
+               class="btn btn-success btn-sm">
+               ✅ Encaisser
+            </a> -->
+
+            <a href="{% url 'valider_paiement' cmd.id %}" class="btn btn-success btn-sm">
+                ✅ Encaisser
+            </a>
+        </td>
+    </tr>
+    {% empty %}
+    <tr>
+        <td colspan="5">Aucune commande à valider</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}
