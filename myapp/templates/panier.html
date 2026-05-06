@@ -1,0 +1,239 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Panier | {{ home_data.site_name }}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      background: #f4f6f9;
+    }
+
+    .cart-box {
+      background: #fff;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    .cart-item {
+      padding: 15px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .cart-item:last-child {
+      border-bottom: none;
+    }
+
+    .product-img {
+      width: 70px;
+      height: 70px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    .qty-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: #eee;
+      border-radius: 5px;
+    }
+
+    .qty-input {
+      width: 50px;
+      text-align: center;
+    }
+
+    .total-box {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+    }
+
+    .checkout-btn {
+      width: 100%;
+      font-size: 18px;
+    }
+
+    .empty-cart {
+      text-align: center;
+      padding: 40px;
+      color: #999;
+    }
+  </style>
+
+</head>
+
+<body>
+
+  <div class="container py-5">
+
+    <h2 class="mb-4 fw-bold">
+      <i class="fa-solid fa-cart-shopping"></i> Votre panier
+    </h2>
+
+    <div class="row">
+
+      <!-- PRODUITS -->
+      <div class="col-lg-8">
+        <div id="cart" class="cart-box"></div>
+      </div>
+
+      <!-- TOTAL -->
+      <div class="col-lg-4">
+
+        <div class="total-box">
+
+          <h5 class="mb-3">Résumé</h5>
+
+          <p class="d-flex justify-content-between">
+            <span>Total</span>
+            <strong id="cart-total">0 FCFA</strong>
+          </p>
+
+          <button id="checkout-btn" class="btn btn-success checkout-btn mb-2">
+            <i class="fa-solid fa-credit-card"></i> Passer la commande
+          </button>
+
+          <a href="{% url 'home' %}" class="btn btn-outline-secondary w-100">
+            Continuer les achats
+          </a>
+
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+
+    function renderCart() {
+
+      const cartContainer = document.getElementById('cart');
+      let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+      cartContainer.innerHTML = '';
+
+      if (cart.length === 0) {
+
+        cartContainer.innerHTML = `
+<div class="empty-cart">
+<i class="fa-solid fa-cart-shopping fa-3x mb-3"></i>
+<p>Votre panier est vide</p>
+</div>
+`;
+
+        document.getElementById('cart-total').innerText = "0 FCFA";
+        return;
+
+      }
+
+      let total = 0;
+
+      cart.forEach((item, index) => {
+
+        const subtotal = item.price * item.qty;
+        total += subtotal;
+
+        const div = document.createElement('div');
+
+        div.classList.add('cart-item', 'd-flex', 'align-items-center', 'justify-content-between');
+
+        div.innerHTML = `
+
+<div class="d-flex align-items-center">
+<div>
+<h6 class="mb-1">${item.name}</h6>
+<small class="text-muted">${item.price} FCFA</small>
+</div>
+</div>
+<div class="d-flex align-items-center">
+<button class="qty-btn me-1 minus" data-index="${index}">
+<i class="fa fa-minus"></i>
+</button>
+<input type="text" value="${item.qty}" class="form-control form-control-sm qty-input" readonly>
+<button class="qty-btn ms-1 plus" data-index="${index}">
+<i class="fa fa-plus"></i>
+</button>
+<span class="ms-4 fw-bold">${subtotal} FCFA</span>
+<button class="btn btn-sm btn-outline-danger ms-3 remove" data-index="${index}">
+<i class="fa fa-trash"></i>
+</button>
+
+</div>
+`;
+
+        cartContainer.appendChild(div);
+
+      });
+
+      document.getElementById('cart-total').innerText = total + " FCFA";
+
+    }
+
+    renderCart();
+
+    document.getElementById('cart').addEventListener('click', function (e) {
+
+      let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+      if (e.target.closest('.plus')) {
+
+        const index = e.target.closest('.plus').dataset.index;
+        cart[index].qty++;
+
+      }
+
+      if (e.target.closest('.minus')) {
+
+        const index = e.target.closest('.minus').dataset.index;
+
+        if (cart[index].qty > 1) {
+          cart[index].qty--;
+        }
+
+      }
+
+      if (e.target.closest('.remove')) {
+
+        const index = e.target.closest('.remove').dataset.index;
+        cart.splice(index, 1);
+
+      }
+
+      localStorage.setItem('cart', JSON.stringify(cart));
+      renderCart();
+
+    });
+
+    document.getElementById('checkout-btn').addEventListener('click', function () {
+
+      let cart = JSON.parse(localStorage.getItem('cart')) || [];
+
+      if (cart.length === 0) {
+
+        alert("Votre panier est vide.");
+        return;
+
+      }
+
+      localStorage.setItem("checkout_cart", JSON.stringify(cart));
+
+      window.location.href = "{% url 'checkout' %}";
+
+    });
+
+  </script>
+
+</body>
+
+</html>

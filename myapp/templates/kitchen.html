@@ -1,0 +1,15 @@
+<h2>Commandes en cours</h2>
+
+{% for cmd in commandes %}
+
+<div class="card mb-3">
+
+    <h4>Commande #{{ cmd.id }}</h4>
+
+    <p>Table : {{ cmd.table }}</p>
+
+    <p>Total : {{ cmd.total }} FCFA</p>
+
+</div>
+
+{% endfor %}

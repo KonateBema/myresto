@@ -1,0 +1,86 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+
+<h2>📊 Historique global des commandes</h2>
+<a href="{% url 'admin:historique_pdf' %}" class="btn btn-danger">
+    📄 Exporter PDF
+</a>
+<!-- ================= FILTRES ================= -->
+<form method="GET" class="row g-2 mb-4">
+
+    <div class="col-md-3">
+        <input type="date" name="start_date" class="form-control"
+               value="{{ request.GET.start_date }}">
+    </div>
+
+    <div class="col-md-3">
+        <input type="date" name="end_date" class="form-control"
+               value="{{ request.GET.end_date }}">
+    </div>
+
+    <div class="col-md-3">
+        <select name="status" class="form-control">
+            <option value="">Tous les statuts</option>
+            <option value="paid">Payé</option>
+            <option value="pending">En attente</option>
+        </select>
+    </div>
+
+    <div class="col-md-3">
+        <button class="btn btn-primary w-100">
+            🔍 Filtrer
+        </button>
+    </div>
+
+</form>
+
+<!-- ================= STATS ================= -->
+<div class="mb-3">
+    <strong>Total :</strong> {{ total }} FCFA
+</div>
+
+<!-- ================= TABLE ================= -->
+<table class="table table-striped table-hover">
+
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Client</th>
+            <th>Total</th>
+            <th>Méthode</th>
+            <th>Statut</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for cmd in commandes %}
+        <tr>
+            <td>#{{ cmd.id }}</td>
+            <td>{{ cmd.customer_name }}</td>
+            <td>{{ cmd.total }} FCFA</td>
+            <td>{{ cmd.payment_method }}</td>
+
+            <td>
+                {% if cmd.payment_status == "paid" %}
+                    <span class="badge bg-success">✔ Payé</span>
+                {% else %}
+                    <span class="badge bg-warning">⏳ En attente</span>
+                {% endif %}
+            </td>
+
+            <td>{{ cmd.created_at|date:"d/m/Y H:i" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6" class="text-center">
+                Aucune commande trouvée
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+
+</table>
+
+{% endblock %}
