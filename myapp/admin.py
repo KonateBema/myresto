@@ -234,7 +234,7 @@ class CommandeAdmin(admin.ModelAdmin):
       mark_cash_paid.short_description = "💵 Valider paiement cash"
 
 
-class CashAuditLogAdmin(admin.ModelAdmin):
+class CashAuditLogAdminAAA(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
@@ -247,6 +247,29 @@ class CashAuditLogAdmin(admin.ModelAdmin):
 
     def changelist_view(self, request, extra_context=None):
         return redirect(reverse("admin:audit_dashboard"))     
+
+
+class CashAuditLogAdmin(admin.ModelAdmin):
+
+    list_display = (
+        "id",
+        "action",
+        "amount_after",
+        "created_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def changelist_view(self, request, extra_context=None):
+        return redirect("/admin/audit/")
+
 # ==============================
 #      ADMIN PERSONNALISÉ
 # ==============================
