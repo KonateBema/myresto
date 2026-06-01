@@ -41,11 +41,8 @@ from datetime import date
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
 from reportlab.lib import colors
 
-
 # from cinetpay.cinetpay import CinetPay
-
 # =================== HOME ===================
-
 import qrcode
 import base64
 from io import BytesIO
@@ -55,7 +52,6 @@ from django.shortcuts import render
 def home(request):
 
     categories = Category.objects.all()
-
     # =========================
     # TABLE (URL + SESSION)
     # =========================
@@ -335,7 +331,9 @@ def dashboard_view(self, request):
         )
         .order_by("month")
     )
+
 # Statistiques globales
+
     orders_pending_count = Commande.objects.filter(is_delivered=False).count()
     orders_delivered_count = Commande.objects.filter(is_delivered=True).count()
     context = dict(
@@ -807,7 +805,7 @@ def payment_view(request, commande_id):
     return render(request, "payment.html", {"commande": commande})
 
 # =========================
-# NOTIFICATION CINETPAY
+# NOTIFICATION CINETPAY 
 # =========================
 @csrf_exempt
 def payment_notify(request):
@@ -1140,8 +1138,8 @@ def category_products(request, id):
 
 
     slides = HomeSlide.objects.filter(
-    Q(categories=category) | Q(categories__isnull=True),
-    is_active=True
+    Q(categories=category) |
+    Q(categories__isnull=True)
     ).distinct()
 
     table = request.session.get("table")
@@ -1527,3 +1525,31 @@ def audit_dashboard(request):
     return render(request, "admin/cash_audit.html", {
         "logs": logs
     })
+
+
+from .models import CashAuditLog
+
+
+def update_commande(request, commande_id):
+
+    commande = Commande.objects.get(id=commande_id)
+
+    ancien_montant = commande.total
+
+    # traitement modification
+    nouveau_montant = 15000
+    commande.total = nouveau_montant
+    commande.save()
+
+    # enregistrer audit
+    CashAuditLog.objects.create(
+        cashier=request.user,
+        action="MODIFICATION",
+        commande_id=commande.id,
+        amount_before=ancien_montant,
+        amount_after=nouveau_montant
+    )
+
+    return redirect("commande_list")
+
+

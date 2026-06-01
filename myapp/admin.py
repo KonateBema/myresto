@@ -20,6 +20,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from .views import export_caisse_jour_pdf
 from myapp.views import audit_dashboard
 from .models import CashAuditLog
+from django.urls import path, reverse
 # ==============================
 #      PRODUCT ADMIN
 # ==============================
@@ -267,9 +268,14 @@ class CashAuditLogAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
-    def changelist_view(self, request, extra_context=None):
-        return redirect("/admin/audit/")
-
+    def changelist_view(
+        self,
+        request,
+        extra_context=None
+    ):
+        return redirect(
+            reverse("admin:audit_dashboard")
+        )
 # ==============================
 #      ADMIN PERSONNALISÉ
 # ==============================
@@ -343,7 +349,7 @@ class MyAdminSite(admin.AdminSite):
         action = request.GET.get("action")
 
         logs = CashAuditLog.objects.all().order_by("-created_at")
-
+        
         if start_date:
             logs = logs.filter(created_at__date__gte=start_date)
 
@@ -364,6 +370,28 @@ class MyAdminSite(admin.AdminSite):
         return TemplateResponse(request, "admin/audit_dashboard.html", context)
 
 
+    def audit_commandes_view(self, request):
+
+        logs = CashAuditLog.objects.select_related(
+        "cashier"
+       ).order_by("-created_at")
+
+        action = request.GET.get("action")
+
+        if action:
+            logs = logs.filter(action=action)
+
+        context = dict(
+            self.each_context(request),
+            logs=logs,
+        )
+
+        return TemplateResponse(
+             request,
+             "admin/audit_commandes.html",
+             context
+        )
+
     # ================= URLS =================
     def get_urls(self):
         urls = super().get_urls()
@@ -377,6 +405,8 @@ class MyAdminSite(admin.AdminSite):
             # path('audit/', self.admin_view(self.audit_dashboard_view), name='audit_dashboard'),
             # path("admin/audit/", audit_dashboard, name="audit_dashboard"),
             path('audit/', self.admin_view(self.audit_dashboard_view), name='audit_dashboard'),
+            path('audit-commandes/',self.admin_view(self.audit_commandes_view),name='audit_commandes'
+),
         ]
         return custom_urls + urls
 
@@ -446,24 +476,6 @@ class HistoriqueCommandeAdmin(admin.ModelAdmin):
         return redirect("/admin/historique-commandes/")
 
 
-
-# from .models import CashAuditLog
-
-# @admin.register(CashAuditLog)
-# class CashAuditLogAdmin(admin.ModelAdmin):
-#     list_display = (
-#         "cashier",
-#         "action",
-#         "commande_id",
-#         "amount_before",
-#         "amount_after",
-#         "created_at"
-#     )
-
-#     list_filter = ("action", "cashier", "created_at")
-
-#     search_fields = ("cashier__username", "commande_id")
-
 # admin_site.register(Slide, SlideAdmin)
 # ==============================
 #      INSTANTIATION DE L'ADMIN PERSONNALISÉ
@@ -486,4 +498,4 @@ admin_site.register(HomeSlide, HomeSlideAdmin)  # <-- nouveau modèle ----->
 admin_site.register(CaisseProxy, CaisseAdmin)
 admin_site.register(HistoriqueCommandeProxy, HistoriqueCommandeAdmin)
 # admin_site.register(CaisseLog, CaisseLogAdmin)
-# admin_site.register(CashAuditLog, CashAuditLogAdmin)
+admin_site.register(CashAuditLog, CashAuditLogAdmin)

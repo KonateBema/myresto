@@ -1,0 +1,43 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+
+<h1>🧾 Audit des commandes</h1>
+
+<table style="width:100%; border-collapse: collapse;">
+    <thead>
+        <tr>
+            <th>Caissier</th>
+            <th>Action</th>
+            <th>Commande</th>
+            <th>Avant</th>
+            <th>Après</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+    {% for log in logs %}
+        <tr>
+            <td>{{ log.cashier }}</td>
+            <td>{{ log.action }}</td>
+            <td>#{{ log.commande_id }}</td>
+            <td>{{ log.amount_before }}</td>
+            <td>{{ log.amount_after }}</td>
+            <td>
+                {{ log.created_at|date:"d/m/Y H:i" }}
+            </td>
+        </tr>
+    {% empty %}
+        <tr>
+            <td colspan="6">
+                Aucun audit trouvé
+            </td>
+        </tr>
+    {% endfor %}
+
+    </tbody>
+</table>
+
+{% endblock %}

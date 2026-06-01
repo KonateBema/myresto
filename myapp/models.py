@@ -245,35 +245,6 @@ class Table(models.Model):
         return f"Table {self.number}"
 # ================= COMMANDE =================
 
-# class Commande(models.Model):
-#     STATUS_CHOICES = (
-#         ('En attente', 'En attente'),
-#         ('En cours', 'En cours'),
-#         ('Livrée', 'Livrée'),
-#     )
-#     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
-#     customer_name = models.CharField(max_length=255)
-#     customer_email = models.EmailField()
-#     customer_phone = models.CharField(max_length=20)
-#     customer_address = models.TextField()
-#     is_paid = models.BooleanField(default=False)
-#     total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
-#     is_delivered = models.BooleanField(default=False)
-#     created_at = models.DateTimeField(auto_now_add=True)
-#     table = models.ForeignKey(Table, on_delete=models.SET_NULL, null=True, blank=True)
-
-
-#     class Meta:
-#         verbose_name = "Commande"
-#         verbose_name_plural = "Commandes"
-#         ordering = ["-created_at"]
-
-#     def __str__(self):
-#         return f"Commande #{self.id} - {self.customer_name}"
-
-#     @property
-#     def status(self):
-#         return "Livrée" if self.is_delivered else "En attente"
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -289,7 +260,7 @@ class Commande(models.Model):
 
     status = models.CharField(
         max_length=20,
-        choices=STATUS_CHOICES,
+         choices=STATUS_CHOICES,
         default='pending'
     )
 
@@ -299,7 +270,7 @@ class Commande(models.Model):
         null=True,
         blank=True,
         related_name="cashier_commandes"
-    )
+    ) 
     # ================= PAIEMENT =================
     PAYMENT_METHOD_CHOICES = [
         ('wave', 'Wave'),
@@ -312,7 +283,6 @@ class Commande(models.Model):
         ('paid', 'Payé'),
         ('failed', 'Échoué'),
     ]
-
     payment_method = models.CharField(
         max_length=20,
         choices=PAYMENT_METHOD_CHOICES,
@@ -486,3 +456,64 @@ class CashAuditProxy(CashAuditLog):
         proxy = True
         verbose_name = "🧾 Audit Caisse"
         verbose_name_plural = "🧾 Audit Caisse"
+
+
+from django.contrib.auth.models import User
+
+class AuditCommande(models.Model):
+
+    ACTIONS = (
+        ("CREATION", "Création"),
+        ("MODIFICATION", "Modification"),
+        ("ANNULATION", "Annulation"),
+        ("PAIEMENT", "Paiement"),
+        ("SUPPRESSION", "Suppression"),
+    )
+
+    cashier = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    commande = models.ForeignKey(
+        'Commande',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
+
+    action = models.CharField(
+        max_length=50,
+        choices=ACTIONS
+    )
+
+    amount_before = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0
+    )
+
+    amount_after = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=0
+    )
+
+    description = models.TextField(
+        blank=True,
+        null=True
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Audit commande"
+        verbose_name_plural = "Audit commandes"
+
+    def __str__(self):
+        return f"{self.action} - {self.commande_id}"

@@ -116,8 +116,6 @@
             </tbody>
         </table>
     </div>
-
-
     <!-- ================= HISTORIQUE ================= -->
     <div class="toolbar d-flex justify-content-between align-items-center mt-5 mb-3">
 
@@ -126,10 +124,7 @@
         <a href="{% url 'caisse_pdf' %}" class="btn btn-danger btn-sm shadow-sm">
             🧾 Télécharger PDF du jour
         </a>
-
     </div>
-
-
     <!-- ================= FILTRE ================= -->
     <form method="GET" class="row g-2 mb-4">
 
@@ -137,7 +132,6 @@
             <input type="date" name="start_date" class="form-control"
                    value="{{ request.GET.start_date }}">
         </div>
-
         <div class="col-md-4">
             <input type="date" name="end_date" class="form-control"
                    value="{{ request.GET.end_date }}">
@@ -150,8 +144,6 @@
         </div>
 
     </form>
-
-
     <!-- ================= TABLE HISTORIQUE ================= -->
     <div class="table-responsive">
         <table class="table table-striped table-hover align-middle">
@@ -198,14 +190,10 @@
     </div>
 
 </div>
-
-
 <!-- ================= PRINT RECEIPT ================= -->
 <script>
 function printReceipt(id, client, total, date) {
-
     let win = window.open('', '', 'width=420,height=650');
-
     win.document.write(`
         <html>
         <head>

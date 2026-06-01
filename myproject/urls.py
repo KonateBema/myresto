@@ -39,6 +39,7 @@ from myapp.views import process_mobile_money, process_wave_payment
 from datetime import date
 from myapp.views import export_caisse_jour_pdf
 from io import BytesIO
+from myapp.views import dashboard_view  # <-- ajoute ceci
 
 urlpatterns = [
     # Admin personnalisé
@@ -51,6 +52,7 @@ urlpatterns = [
     path('commande-confirmation-pdf/<int:commande_id>/', views.generate_pdf, name='generate_pdf'),
     path('produit/<int:id>/', views.product_detail, name='product_detail'),
     # path('produit/<int:id>/', views.product_detail, name='product_detail')
+    path('admin/dashboard/', dashboard_view, name='dashboard'),
     path('panier/', views.panier_view, name='panier'),  # panier
     # path('checkout/', views.checkout, name='checkout'),
     path("checkout/", views.checkout_view, name="checkout"),

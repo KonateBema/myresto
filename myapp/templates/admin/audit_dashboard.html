@@ -1,37 +1,381 @@
-<h2>🧾 Audit de caisse</h2>
+{% extends "admin/base_site.html" %}
+{% load static %}
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Caissier</th>
-            <th>Action</th>
-            <th>Commande</th>
-            <th>Avant</th>
-            <th>Après</th>
-            <th>Date</th>
-        </tr>
-    </thead>
+{% block extrastyle %}
+{{ block.super }}
 
-    <tbody>
-        {% for log in logs %}
-        <tr>
-            <td>{{ log.cashier }}</td>
-            <td>
-                <span class="badge bg-info">
-                    {{ log.action }}
-                </span>
-            </td>
-            <td>#{{ log.commande_id }}</td>
-            <td>{{ log.amount_before }} FCFA</td>
-            <td>{{ log.amount_after }} FCFA</td>
-            <td>{{ log.created_at|date:"d/m/Y H:i" }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="6" class="text-center">
-                Aucun audit disponible
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<style>
+    /* ======== RESET DJANGO ADMIN WIDTH ======== */
+    #content {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    #content-main {
+        width: 100% !important;
+        float: none !important;
+    }
+
+    .main {
+        width: 100%;
+    }
+
+    /* ======== CONTAINER ======== */
+    .audit-container {
+        width: 100%;
+        max-width: 1600px;
+        margin: auto;
+        padding: 30px;
+    }
+
+    /* ======== TITLE ======== */
+    .page-title {
+        font-size: 32px;
+        font-weight: bold;
+        margin-bottom: 20px;
+        color: #222;
+    }
+
+    /* ======== CARD ======== */
+    .audit-card {
+        background: #fff;
+        border-radius: 18px;
+        padding: 25px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    }
+
+    /* ======== STATS ======== */
+    .stats-box {
+        background: linear-gradient(135deg, #0d6efd, #2563eb);
+        color: white;
+        border-radius: 18px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: 0 6px 16px rgba(13,110,253,0.25);
+    }
+
+    .stats-box p {
+        margin: 0;
+        font-size: 16px;
+        opacity: 0.9;
+    }
+
+    .stats-box h3 {
+        margin-top: 8px;
+        font-size: 34px;
+        font-weight: bold;
+    }
+
+    /* ======== FILTERS ======== */
+    .filter-form {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .filter-form input,
+    .filter-form select {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 12px 15px;
+        min-width: 250px;
+        font-size: 14px;
+        outline: none;
+        transition: 0.3s;
+    }
+
+    .filter-form input:focus,
+    .filter-form select:focus {
+        border-color: #0d6efd;
+        box-shadow: 0 0 0 3px rgba(13,110,253,.15);
+    }
+
+    .filter-btn {
+        background: #0d6efd;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 12px 22px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: 0.3s;
+    }
+
+    .filter-btn:hover {
+        background: #0b5ed7;
+    }
+
+    /* ======== TABLE ======== */
+    .table-container {
+        width: 100%;
+        overflow-x: auto;
+        border-radius: 14px;
+        border: 1px solid #eee;
+    }
+
+    table {
+        width: 100%;
+        min-width: 1200px;
+        border-collapse: collapse;
+        background: white;
+    }
+
+    thead {
+        background: #f8fafc;
+    }
+
+    th {
+        padding: 18px;
+        text-align: left;
+        font-size: 14px;
+        font-weight: 700;
+        color: #374151;
+        border-bottom: 1px solid #eee;
+    }
+
+    td {
+        padding: 18px;
+        border-bottom: 1px solid #f1f1f1;
+        font-size: 14px;
+        color: #444;
+    }
+
+    tbody tr {
+        transition: background 0.2s ease;
+    }
+
+    tbody tr:hover {
+        background: #f9fafb;
+    }
+
+    /* ======== BADGES ======== */
+    .badge {
+        display: inline-block;
+        padding: 8px 14px;
+        border-radius: 10px;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .badge-success {
+        background: #dcfce7;
+        color: #166534;
+    }
+
+    .badge-danger {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+
+    .badge-warning {
+        background: #fef3c7;
+        color: #92400e;
+    }
+
+    .badge-info {
+        background: #dbeafe;
+        color: #1e40af;
+    }
+
+    /* ======== EMPTY ======== */
+    .empty-box {
+        text-align: center;
+        padding: 50px;
+    }
+
+    .empty-box h3 {
+        color: #444;
+        margin-bottom: 10px;
+    }
+
+    .empty-box p {
+        color: #777;
+    }
+
+    /* ======== RESPONSIVE ======== */
+    @media (max-width: 768px) {
+        .audit-container {
+            padding: 15px;
+        }
+
+        .filter-form {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .filter-form input,
+        .filter-form select,
+        .filter-btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="audit-container">
+
+    <h1 class="page-title">
+        🧾 Audit de caisse
+    </h1>
+
+    <div class="stats-box">
+        <p>Total des audits</p>
+        <h3>{{ logs.count }}</h3>
+    </div>
+
+    <div class="audit-card">
+
+        <!-- FILTRES -->
+        <form method="GET" class="filter-form">
+
+            <input
+                type="text"
+                name="cashier"
+                placeholder="Rechercher un caissier"
+                value="{{ request.GET.cashier }}"
+            >
+
+            <select name="action">
+                <option value="">Toutes les actions</option>
+
+                <option value="CREATION"
+                    {% if request.GET.action == 'CREATION' %}
+                        selected
+                    {% endif %}
+                >
+                    Création
+                </option>
+
+                <option value="MODIFICATION"
+                    {% if request.GET.action == 'MODIFICATION' %}
+                        selected
+                    {% endif %}
+                >
+                    Modification
+                </option>
+
+                <option value="ANNULATION"
+                    {% if request.GET.action == 'ANNULATION' %}
+                        selected
+                    {% endif %}
+                >
+                    Annulation
+                </option>
+
+                <option value="PAIEMENT"
+                    {% if request.GET.action == 'PAIEMENT' %}
+                        selected
+                    {% endif %}
+                >
+                    Paiement
+                </option>
+
+                <option value="TEST"
+                    {% if request.GET.action == 'TEST' %}
+                        selected
+                    {% endif %}
+                >
+                    Test
+                </option>
+            </select>
+
+            <button type="submit" class="filter-btn">
+                🔍 Filtrer
+            </button>
+
+        </form>
+
+        <!-- TABLE -->
+        <div class="table-container">
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>👤 Caissier</th>
+                        <th>📌 Action</th>
+                        <th>🧾 Commande</th>
+                        <th>💰 Avant</th>
+                        <th>💵 Après</th>
+                        <th>📅 Date</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    {% for log in logs %}
+                    <tr>
+
+                        <td>
+                            {{ log.cashier|default:"-" }}
+                        </td>
+
+                        <td>
+                            {% if log.action == "ANNULATION" %}
+                                <span class="badge badge-danger">
+                                    {{ log.action }}
+                                </span>
+
+                            {% elif log.action == "PAIEMENT" %}
+                                <span class="badge badge-success">
+                                    {{ log.action }}
+                                </span>
+
+                            {% elif log.action == "MODIFICATION" %}
+                                <span class="badge badge-warning">
+                                    {{ log.action }}
+                                </span>
+
+                            {% else %}
+                                <span class="badge badge-info">
+                                    {{ log.action }}
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            #{{ log.commande_id|default:"-" }}
+                        </td>
+
+                        <td>
+                            {{ log.amount_before|default:"0" }} FCFA
+                        </td>
+
+                        <td>
+                            {{ log.amount_after|default:"0" }} FCFA
+                        </td>
+
+                        <td>
+                            {{ log.created_at|date:"d/m/Y H:i" }}
+                        </td>
+
+                    </tr>
+
+                    {% empty %}
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-box">
+                                <h3>📭 Aucun audit disponible</h3>
+                                <p>
+                                    Aucun événement de caisse enregistré.
+                                </p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+
+                </tbody>
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
