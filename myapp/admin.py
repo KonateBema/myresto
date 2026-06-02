@@ -174,7 +174,7 @@ class CommandeAdmin(admin.ModelAdmin):
         'created_at',
     )
 
-    list_filter = (
+    list_filter = (   
         'payment_status',
         "payment_method",
         'status',

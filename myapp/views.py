@@ -422,7 +422,8 @@ def panier_view(request):
         "yopougon": 2000,
         "abobo": 2500,
         "plateau": 1000,
-        "marcory": 1200
+        "marcory": 1200,
+        "livraison":0
     }
 
     delivery_fee = delivery_fees.get(commune, 0)
@@ -590,7 +591,8 @@ def checkout_view(request):
         "yopougon": 2000,
         "abobo": 2500,
         "plateau": 1000,
-        "marcory": 1200
+        "marcory": 1200,
+        "livraison":0
     }
 
     delivery_fee = delivery_fees.get(commune, 0)
